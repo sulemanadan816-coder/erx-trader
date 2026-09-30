@@ -36,6 +36,7 @@ import {
   WithdrawalRequest,
 } from '../../types';
 import { parseNumericPkr } from '../../server/ledgerUtilsClient';
+import { apiRequest } from '../../utils/api';
 
 interface ClientDashboardProps {
   user: UserAccount;
@@ -147,13 +148,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch('/api/dashboard/summary', {
+      const res = await apiRequest('/api/dashboard/summary', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
       if (!res.ok) {
-        setFetchError(data.error || 'Could not load dashboard records.');
+        setFetchError(res.error || 'Could not load dashboard records.');
       } else {
+        const data = res.data;
         if (data.user) setUser(data.user);
         if (data.wallet) setWallet(data.wallet);
         setDeposits(data.deposits || []);
@@ -171,8 +172,6 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
           setNewAccMethodId(methods[0].id);
         }
       }
-    } catch {
-      setFetchError('Network error while synchronizing with the backend ledger.');
     } finally {
       setLoading(false);
     }
@@ -232,12 +231,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
     setDepositSubmitting(true);
     try {
-      const res = await fetch('/api/transactions', {
+      const res = await apiRequest('/api/transactions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           planId: depositPlanId,
           transactionId: depositTid.trim(),
@@ -248,20 +244,17 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
           idempotencyKey: `dep-${user.id}-${depositTid.trim()}`,
         }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setDepositError(data.error || 'Could not submit deposit reference.');
+        setDepositError(res.error || 'Could not submit deposit reference.');
       } else {
         setDepositSuccess(
-          data.message ||
+          res.data?.message ||
             'Deposit reference recorded with status: PENDING. Awaiting manual administrator verification.'
         );
         setDepositTid('');
         setDepositProofNote('');
         fetchDashboardSummary();
       }
-    } catch {
-      setDepositError('Network error while submitting payment reference.');
     } finally {
       setDepositSubmitting(false);
     }
@@ -282,28 +275,23 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
     setPurchasingPlanId(plan.id);
     try {
-      const res = await fetch('/api/orders/purchase-wallet', {
+      const res = await apiRequest('/api/orders/purchase-wallet', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           planId: plan.id,
           idempotencyKey: `ord-${user.id}-${plan.id}-${Date.now()}`,
         }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setPlanActionError(data.error || 'Purchase could not be completed.');
+        setPlanActionError(res.error || 'Purchase could not be completed.');
       } else {
         setPlanActionSuccess(
-          data.message || `Purchased and activated ${plan.name} using your Available Balance.`
+          res.data?.message ||
+            `Purchased and activated ${plan.name} using your Available Balance.`
         );
         fetchDashboardSummary();
       }
-    } catch {
-      setPlanActionError('Network error while purchasing service plan.');
     } finally {
       setPurchasingPlanId(null);
     }
@@ -362,12 +350,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     setWdError(null);
     setWdSubmitting(true);
     try {
-      const res = await fetch('/api/withdrawals', {
+      const res = await apiRequest<{ withdrawal: WithdrawalRequest }>('/api/withdrawals', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           amount: parsedWdAmount,
           methodId: wdMethodId,
@@ -378,19 +363,15 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
           idempotencyKey: `wd-${user.id}-${parsedWdAmount}-${Date.now()}`,
         }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setWdError(data.error || 'Withdrawal request failed validation.');
+        setWdError(res.error || 'Withdrawal request failed validation.');
         setWdReviewMode(false);
       } else {
-        setWdCreatedReceipt(data.withdrawal);
+        setWdCreatedReceipt(res.data.withdrawal);
         setWdReviewMode(false);
         setWdAmount('');
         fetchDashboardSummary();
       }
-    } catch {
-      setWdError('Network error while submitting withdrawal request.');
-      setWdReviewMode(false);
     } finally {
       setWdSubmitting(false);
     }
@@ -398,19 +379,14 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   const handleCancelWithdrawal = async (withdrawalId: string) => {
     setWdError(null);
-    try {
-      const res = await fetch(`/api/withdrawals/${withdrawalId}/cancel`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setWdError(data.error || 'Could not cancel withdrawal.');
-      } else {
-        fetchDashboardSummary();
-      }
-    } catch {
-      setWdError('Network error while cancelling withdrawal.');
+    const res = await apiRequest(`/api/withdrawals/${withdrawalId}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      setWdError(res.error || 'Could not cancel withdrawal.');
+    } else {
+      fetchDashboardSummary();
     }
   };
 
@@ -429,56 +405,43 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       setProfileMsg('Please enter valid account title and account number.');
       return;
     }
-    try {
-      const res = await fetch('/api/profile/payout-accounts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          methodId: newAccMethodId,
-          accountTitle: newAccTitle.trim(),
-          accountNumber: newAccNumber.trim(),
-          bankName: newAccBank.trim() || undefined,
-        }),
-      });
-      if (res.ok) {
-        setNewAccTitle('');
-        setNewAccNumber('');
-        setNewAccBank('');
-        setProfileMsg('Saved withdrawal payout account added.');
-        fetchDashboardSummary();
-      }
-    } catch {
-      setProfileMsg('Could not save payout account.');
+    const res = await apiRequest('/api/profile/payout-accounts', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        methodId: newAccMethodId,
+        accountTitle: newAccTitle.trim(),
+        accountNumber: newAccNumber.trim(),
+        bankName: newAccBank.trim() || undefined,
+      }),
+    });
+    if (res.ok) {
+      setNewAccTitle('');
+      setNewAccNumber('');
+      setNewAccBank('');
+      setProfileMsg('Saved withdrawal payout account added.');
+      fetchDashboardSummary();
+    } else {
+      setProfileMsg(res.error || 'Could not save payout account.');
     }
   };
 
   const handleDeleteSavedAccount = async (id: string) => {
-    try {
-      const res = await fetch(`/api/profile/payout-accounts/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        fetchDashboardSummary();
-      }
-    } catch {
-      // ignore
+    const res = await apiRequest(`/api/profile/payout-accounts/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      fetchDashboardSummary();
     }
   };
 
   const handleMarkNotificationsRead = async () => {
-    try {
-      await fetch('/api/notifications/read-all', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchDashboardSummary();
-    } catch {
-      // ignore
-    }
+    await apiRequest('/api/notifications/read-all', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    fetchDashboardSummary();
   };
 
   const handleSupportSubmit = async (e: React.FormEvent) => {
@@ -490,9 +453,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     }
     setSupSubmitting(true);
     try {
-      const res = await fetch('/api/inquiries', {
+      const res = await apiRequest('/api/inquiries', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: user.name,
           contactInfo: user.identifier,
@@ -500,16 +462,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
           message: supMessage.trim(),
         }),
       });
-      const data = await res.json();
       if (res.ok) {
         setSupSubject('');
         setSupMessage('');
-        setSupStatusMsg(data.message || 'Support ticket submitted.');
+        setSupStatusMsg(res.data?.message || 'Support ticket submitted.');
       } else {
-        setSupStatusMsg(data.error || 'Could not submit ticket.');
+        setSupStatusMsg(res.error || 'Could not submit ticket.');
       }
-    } catch {
-      setSupStatusMsg('Network error submitting ticket.');
     } finally {
       setSupSubmitting(false);
     }

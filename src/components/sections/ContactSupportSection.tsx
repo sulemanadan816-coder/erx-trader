@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Copy, ExternalLink, Send } from 'lucide-react';
 import { SiteSettings } from '../../types';
+import { apiRequest } from '../../utils/api';
 
 interface ContactSupportSectionProps {
   settings: SiteSettings;
@@ -61,9 +62,8 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inquiries', {
+      const res = await apiRequest<{ message?: string; error?: string }>('/api/inquiries', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
           contactInfo: contactInfo.trim(),
@@ -71,12 +71,11 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
           message: message.trim(),
         }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setFormError(data.error || 'Could not submit your inquiry. Please try again.');
+        setFormError(res.error || 'Could not submit your inquiry. Please try again.');
       } else {
         setFormSuccess(
-          data.message ||
+          res.data?.message ||
             'Your message has been submitted to REX TRADERS support. You can also reach us directly on Telegram.'
         );
         setName('');
@@ -84,8 +83,6 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
         setSubject('');
         setMessage('');
       }
-    } catch {
-      setFormError('Network error while submitting your inquiry. Please reach us via Telegram.');
     } finally {
       setSubmitting(false);
     }

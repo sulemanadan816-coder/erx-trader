@@ -1,17 +1,16 @@
-import express, { Request, Response, NextFunction } from 'express';
-import { createServer as createViteServer } from 'vite';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import path from 'path';
 import crypto from 'crypto';
 import { z } from 'zod';
 import {
   LedgerEngine,
-  StoredUserRecord,
+  type StoredUserRecord,
   hashPassword,
   verifyPassword,
   signToken,
   verifyToken,
   maskAccountNumber,
-} from './src/server/ledgerEngine';
+} from './src/server/ledgerEngine.ts';
 
 const PORT = 3000;
 const ledger = new LedgerEngine();
@@ -230,6 +229,11 @@ async function startServer() {
   });
 
   app.use(express.json({ limit: '1mb' }));
+
+  // --- Health Check ---
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, service: 'REX TRADERS API', timestamp: new Date().toISOString() });
+  });
 
   // --- Public Bootstrap ---
   app.get('/api/public/bootstrap', (_req, res) => {
@@ -948,7 +952,20 @@ async function startServer() {
     res.status(404).json({ error: 'API endpoint not found.' });
   });
 
-  if (process.env.NODE_ENV !== 'production') {
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/api')) {
+      const msg = err instanceof Error ? err.message : 'Unexpected server error.';
+      return res.status(400).json({ error: msg });
+    }
+    next(err);
+  });
+
+  const isDev =
+    process.env.NODE_ENV !== 'production' &&
+    process.execArgv.some((arg) => arg.includes('tsx'));
+
+  if (isDev) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

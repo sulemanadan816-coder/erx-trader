@@ -16,6 +16,7 @@ import {
   WithdrawalRequest,
   WithdrawalStatus,
 } from '../../types';
+import { apiRequest } from '../../utils/api';
 
 interface AdminDashboardProps {
   token: string;
@@ -55,7 +56,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [withdrawalMethods, setWithdrawalMethods] = useState<WithdrawalMethodConfig[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLogs, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [inquiries, setInquiries] = useState<SupportInquiry[]>([]);
 
   // --- Withdrawal Management State ---
@@ -108,13 +109,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/overview', {
+      const res = await apiRequest('/api/admin/overview', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Failed to load administrator data.');
+        setError(res.error || 'Failed to load administrator data.');
       } else {
+        const data = res.data;
         const userList: UserAccount[] = data.users || [];
         setUsers(userList);
         if (userList.length > 0 && !adjUserId) {
@@ -126,7 +127,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setWithdrawals(data.withdrawals || []);
         setWithdrawalMethods(data.withdrawalMethods || []);
         setLedgerEntries(data.ledgerEntries || []);
-        setAuditLogs(data.auditLogs || []);
+        setAuditLog(data.auditLogs || []);
         setInquiries(data.inquiries || []);
         if (data.settings) {
           setLogoUrlInput(data.settings.logoUrl || '');
@@ -134,8 +135,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setHeroSubheadlineInput(data.settings.heroSubheadline || '');
         }
       }
-    } catch {
-      setError('Network error while loading admin panel.');
     } finally {
       setLoading(false);
     }
@@ -173,29 +172,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     }
 
-    try {
-      const res = await fetch(`/api/admin/withdrawals/${wd.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          status: targetStatus,
-          adminNotes,
-          confirmRealPayoutSent,
-          payoutReference: payoutReference.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Could not update withdrawal status.');
-      } else {
-        showFlash(`Withdrawal ${wd.id} updated to ${targetStatus} (Audit log recorded).`);
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Network error while updating withdrawal.');
+    const res = await apiRequest(`/api/admin/withdrawals/${wd.id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        status: targetStatus,
+        adminNotes,
+        confirmRealPayoutSent,
+        payoutReference: payoutReference.trim(),
+      }),
+    });
+    if (!res.ok) {
+      setError(res.error || 'Could not update withdrawal status.');
+    } else {
+      showFlash(`Withdrawal ${wd.id} updated to ${targetStatus} (Audit log recorded).`);
+      fetchAdminOverview();
     }
   };
 
@@ -210,24 +201,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ? 'Transaction ID could not be verified against Easypaisa records.'
         : 'Pending manual verification.');
 
-    try {
-      const res = await fetch(`/api/admin/transactions/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status, adminNotes }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Could not update deposit status.');
-      } else {
-        showFlash(`Deposit ${id} marked as ${status} (Ledger & Audit log updated).`);
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Could not update deposit status.');
+    const res = await apiRequest(`/api/admin/transactions/${id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status, adminNotes }),
+    });
+    if (!res.ok) {
+      setError(res.error || 'Could not update deposit status.');
+    } else {
+      showFlash(`Deposit ${id} marked as ${status} (Ledger & Audit log updated).`);
+      fetchAdminOverview();
     }
   };
 
@@ -241,34 +224,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    try {
-      const res = await fetch('/api/admin/wallets/adjust', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          targetUserId: adjUserId,
-          direction: adjDirection,
-          category: adjCategory,
-          amount: numAmt,
-          reason: adjReason.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Balance adjustment failed.');
-      } else {
-        setAdjAmount('');
-        setAdjReason('');
-        showFlash(
-          `Posted immutable ${adjDirection} ledger adjustment of Rs. ${numAmt.toLocaleString()}.`
-        );
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Network error while posting balance adjustment.');
+    const res = await apiRequest('/api/admin/wallets/adjust', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        targetUserId: adjUserId,
+        direction: adjDirection,
+        category: adjCategory,
+        amount: numAmt,
+        reason: adjReason.trim(),
+      }),
+    });
+    if (!res.ok) {
+      setError(res.error || 'Balance adjustment failed.');
+    } else {
+      setAdjAmount('');
+      setAdjReason('');
+      showFlash(
+        `Posted immutable ${adjDirection} ledger adjustment of Rs. ${numAmt.toLocaleString()}.`
+      );
+      fetchAdminOverview();
     }
   };
 
@@ -281,61 +256,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    try {
-      const res = await fetch('/api/admin/withdrawal-methods', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: wmName.trim(),
-          code: wmCode.trim().toUpperCase(),
-          minAmount: Number(wmMin) || 500,
-          maxAmount: Number(wmMax) || 500000,
-          feePercent: Number(wmFeePercent) || 0,
-          feeFixed: Number(wmFeeFixed) || 0,
-          accountLabel: wmLabel.trim() || 'Account Number',
-          requiresBankName: wmRequiresBank,
-          instructions:
-            wmInstructions.trim() || `Enter your registered ${wmName.trim()} account details.`,
-          active: true,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Could not save withdrawal method.');
-      } else {
-        setWmName('');
-        setWmCode('');
-        setWmInstructions('');
-        showFlash('Withdrawal method configuration saved.');
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Network error while saving withdrawal method.');
+    const res = await apiRequest('/api/admin/withdrawal-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: wmName.trim(),
+        code: wmCode.trim().toUpperCase(),
+        minAmount: Number(wmMin) || 500,
+        maxAmount: Number(wmMax) || 500000,
+        feePercent: Number(wmFeePercent) || 0,
+        feeFixed: Number(wmFeeFixed) || 0,
+        accountLabel: wmLabel.trim() || 'Account Number',
+        requiresBankName: wmRequiresBank,
+        instructions:
+          wmInstructions.trim() || `Enter your registered ${wmName.trim()} account details.`,
+        active: true,
+      }),
+    });
+    if (!res.ok) {
+      setError(res.error || 'Could not save withdrawal method.');
+    } else {
+      setWmName('');
+      setWmCode('');
+      setWmInstructions('');
+      showFlash('Withdrawal method configuration saved.');
+      fetchAdminOverview();
     }
   };
 
   const handleToggleMethodActive = async (m: WithdrawalMethodConfig) => {
-    try {
-      const res = await fetch('/api/admin/withdrawal-methods', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...m,
-          active: !m.active,
-        }),
-      });
-      if (res.ok) {
-        showFlash(`Updated ${m.name} status.`);
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Could not toggle method status.');
+    const res = await apiRequest('/api/admin/withdrawal-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        ...m,
+        active: !m.active,
+      }),
+    });
+    if (res.ok) {
+      showFlash(`Updated ${m.name} status.`);
+      fetchAdminOverview();
+    } else {
+      setError(res.error || 'Could not toggle method status.');
     }
   };
 
@@ -352,102 +314,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    try {
-      const res = await fetch('/api/admin/plans', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: newPlanName.trim(),
-          targetAudience: 'Structured 30-Day Package',
-          price: newPlanPrice.trim(),
-          dailyProfit: newPlanDaily.trim() || undefined,
-          totalProfit: newPlanTotal.trim() || undefined,
-          currency: 'PKR',
-          duration: newPlanDuration.trim(),
-          description:
-            newPlanDesc.trim() ||
-            'Structured trading service package with support and portal access.',
-          features,
-          ctaText: 'Invest Now',
-          isPopular: newPlanPopular,
-          active: true,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Could not create plan.');
-      } else {
-        setNewPlanName('');
-        setNewPlanPrice('');
-        setNewPlanDaily('');
-        setNewPlanTotal('');
-        setNewPlanDesc('');
-        setNewPlanFeaturesText('');
-        setNewPlanPopular(false);
-        showFlash('New service plan created.');
-        fetchAdminOverview();
-        onPlansUpdated();
-      }
-    } catch {
-      setError('Network error while creating plan.');
+    const res = await apiRequest('/api/admin/plans', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: newPlanName.trim(),
+        targetAudience: 'Structured 30-Day Package',
+        price: newPlanPrice.trim(),
+        dailyProfit: newPlanDaily.trim() || undefined,
+        totalProfit: newPlanTotal.trim() || undefined,
+        currency: 'PKR',
+        duration: newPlanDuration.trim(),
+        description:
+          newPlanDesc.trim() ||
+          'Structured trading service package with support and portal access.',
+        features,
+        ctaText: 'Invest Now',
+        isPopular: newPlanPopular,
+        active: true,
+      }),
+    });
+    if (!res.ok) {
+      setError(res.error || 'Could not create plan.');
+    } else {
+      setNewPlanName('');
+      setNewPlanPrice('');
+      setNewPlanDaily('');
+      setNewPlanTotal('');
+      setNewPlanDesc('');
+      setNewPlanFeaturesText('');
+      setNewPlanPopular(false);
+      showFlash('New service plan created.');
+      fetchAdminOverview();
+      onPlansUpdated();
     }
   };
 
   const handleDeletePlan = async (id: string) => {
-    try {
-      const res = await fetch(`/api/admin/plans/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        showFlash('Service plan removed.');
-        fetchAdminOverview();
-        onPlansUpdated();
-      }
-    } catch {
-      setError('Could not delete plan.');
+    const res = await apiRequest(`/api/admin/plans/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      showFlash('Service plan removed.');
+      fetchAdminOverview();
+      onPlansUpdated();
+    } else {
+      setError(res.error || 'Could not delete plan.');
     }
   };
 
   const handleUpdateInquiry = async (id: string, status: InquiryStatus, adminReply: string) => {
-    try {
-      const res = await fetch(`/api/admin/inquiries/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status, adminReply }),
-      });
-      if (res.ok) {
-        showFlash(`Inquiry marked as ${status}.`);
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Could not update support inquiry.');
+    const res = await apiRequest(`/api/admin/inquiries/${id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status, adminReply }),
+    });
+    if (res.ok) {
+      showFlash(`Inquiry marked as ${status}.`);
+      fetchAdminOverview();
+    } else {
+      setError(res.error || 'Could not update support inquiry.');
     }
   };
 
   const handleToggleUserStatus = async (u: UserAccount) => {
     const nextStatus = u.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
-    try {
-      const res = await fetch(`/api/admin/users/${u.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (res.ok) {
-        showFlash(`User ${u.name} status set to ${nextStatus}.`);
-        fetchAdminOverview();
-      }
-    } catch {
-      setError('Could not update user status.');
+    const res = await apiRequest(`/api/admin/users/${u.id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    if (res.ok) {
+      showFlash(`User ${u.name} status set to ${nextStatus}.`);
+      fetchAdminOverview();
+    } else {
+      setError(res.error || 'Could not update user status.');
     }
   };
 
@@ -465,28 +407,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          logoUrl: logoUrlInput.trim() ? logoUrlInput.trim() : null,
-          heroHeadline: heroHeadlineInput.trim(),
-          heroSubheadline: heroSubheadlineInput.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.settings) {
-        onSettingsUpdated(data.settings);
-        showFlash('Website & Logo settings updated across REX TRADERS.');
-      } else {
-        setError(data.error || 'Could not save settings.');
-      }
-    } catch {
-      setError('Network error while saving settings.');
+    const res = await apiRequest<{ settings: SiteSettings }>('/api/admin/settings', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        logoUrl: logoUrlInput.trim() ? logoUrlInput.trim() : null,
+        heroHeadline: heroHeadlineInput.trim(),
+        heroSubheadline: heroSubheadlineInput.trim(),
+      }),
+    });
+    if (res.ok && res.data?.settings) {
+      onSettingsUpdated(res.data.settings);
+      showFlash('Website & Logo settings updated across REX TRADERS.');
+    } else {
+      setError(res.error || 'Could not save settings.');
     }
   };
 

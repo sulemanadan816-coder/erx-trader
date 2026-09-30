@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import {
+import type {
   AuditLogEntry,
   DepositStatus,
   InquiryStatus,
@@ -19,9 +19,15 @@ import {
   WithdrawalMethodConfig,
   WithdrawalRequest,
   WithdrawalStatus,
-} from '../types';
+} from '../types/index.ts';
 
 const TOKEN_SECRET = process.env.SESSION_SECRET || 'rex-traders-hmac-secret-key-2026-prod';
+
+// Pre-computed scrypt hashes for seeded accounts so createInitialDb() never blocks the event loop
+const DEFAULT_ADMIN_PASSWORD_HASH =
+  '999bbb5c43dca034a75792ab5c0d7b9a:abfca530d9a79b8bba88e3e0c99314eed44b9bb5946195211dc085b44cf4edd36b50346919ec48f971d4def1bae6373a41117390a11f8008ba94f82ec27d07a5';
+const DEFAULT_CLIENT_PASSWORD_HASH =
+  '2b2fb7c338ca016f82fcb3040ca12a22:7a297f0499c88226a1f736aff551da75e9e4b80490f276e3cd8a76865841e38a8457c4da85b8a23e40723af6ed862a8e81dd83108dba75e3064d7ffe33c5c07f';
 
 export function hashPassword(password: string, salt?: string): string {
   const useSalt = salt || crypto.randomBytes(16).toString('hex');
@@ -419,7 +425,7 @@ export function createInitialDb(): DatabaseSchema {
         id: 'usr-admin-1',
         name: 'REX TRADERS Administrator',
         identifier: 'admin@rextraders.com',
-        passwordHash: hashPassword('RexAdmin2026!'),
+        passwordHash: DEFAULT_ADMIN_PASSWORD_HASH,
         role: 'admin',
         status: 'ACTIVE',
         activePlanId: null,
@@ -430,7 +436,7 @@ export function createInitialDb(): DatabaseSchema {
         id: 'usr-client-1',
         name: 'Demo Client Account [TEST/DEMO]',
         identifier: 'client@rextraders.com',
-        passwordHash: hashPassword('RexClient2026!'),
+        passwordHash: DEFAULT_CLIENT_PASSWORD_HASH,
         role: 'user',
         status: 'ACTIVE',
         activePlanId: null,
@@ -509,6 +515,8 @@ export class LedgerEngine {
   private dbFile: string;
   private dataDir: string;
   private lockQueue: Promise<unknown> = Promise.resolve();
+  private cachedDb: DatabaseSchema | null = null;
+  private cachedMtimeMs = 0;
 
   constructor(customDbFile?: string) {
     this.dbFile = customDbFile || path.resolve(process.cwd(), 'data', 'rex_traders_db.json');
@@ -524,22 +532,40 @@ export class LedgerEngine {
       const initial = createInitialDb();
       this.writeDbSync(initial);
     } else {
-      const db = this.readDbSync();
+      const db = this.readDbSync(true);
       this.writeDbSync(db);
     }
   }
 
-  public readDbSync(): DatabaseSchema {
+  public readDbSync(forceDiskRead = false): DatabaseSchema {
     try {
+      if (!forceDiskRead && this.cachedDb && fs.existsSync(this.dbFile)) {
+        const stat = fs.statSync(this.dbFile);
+        if (stat.mtimeMs === this.cachedMtimeMs) {
+          return this.cachedDb;
+        }
+      }
+
       const raw = fs.readFileSync(this.dbFile, 'utf-8');
       const parsed = JSON.parse(raw) as Partial<DatabaseSchema>;
       const fallback = createInitialDb();
+
+      const resolvedPlans =
+        Array.isArray(parsed.plans) &&
+        parsed.plans.length > 0 &&
+        !parsed.plans.some((p) => p.id === 'plan-standard')
+          ? parsed.plans
+          : fallback.plans;
+
+      const validPlanIds = new Set(resolvedPlans.map((p) => p.id));
 
       const db: DatabaseSchema = {
         settings: parsed.settings || fallback.settings,
         users: (parsed.users || fallback.users).map((u) => ({
           ...u,
           status: u.status || 'ACTIVE',
+          activePlanId:
+            u.activePlanId && validPlanIds.has(u.activePlanId) ? u.activePlanId : null,
           savedPayoutAccounts: Array.isArray(u.savedPayoutAccounts) ? u.savedPayoutAccounts : [],
         })),
         wallets: Array.isArray(parsed.wallets) ? parsed.wallets : fallback.wallets,
@@ -557,12 +583,7 @@ export class LedgerEngine {
         notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
         auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
         inquiries: Array.isArray(parsed.inquiries) ? parsed.inquiries : [],
-        plans:
-          Array.isArray(parsed.plans) &&
-          parsed.plans.length > 0 &&
-          !parsed.plans.some((p) => p.id === 'plan-standard')
-            ? parsed.plans
-            : fallback.plans,
+        plans: resolvedPlans,
         idempotencyKeys: parsed.idempotencyKeys || {},
       };
 
@@ -579,9 +600,15 @@ export class LedgerEngine {
         this.getOrCreateWallet(db, u.id);
       }
 
+      if (fs.existsSync(this.dbFile)) {
+        this.cachedMtimeMs = fs.statSync(this.dbFile).mtimeMs;
+      }
+      this.cachedDb = db;
       return db;
     } catch {
-      return createInitialDb();
+      const initial = createInitialDb();
+      this.cachedDb = initial;
+      return initial;
     }
   }
 
@@ -592,6 +619,10 @@ export class LedgerEngine {
     const tempFile = `${this.dbFile}.${crypto.randomBytes(4).toString('hex')}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(db, null, 2), 'utf-8');
     fs.renameSync(tempFile, this.dbFile);
+    this.cachedDb = db;
+    if (fs.existsSync(this.dbFile)) {
+      this.cachedMtimeMs = fs.statSync(this.dbFile).mtimeMs;
+    }
   }
 
   /**

@@ -20,6 +20,7 @@ import { AuthPage } from './components/portal/AuthPage';
 import { ClientDashboard } from './components/portal/ClientDashboard';
 import { AdminDashboard } from './components/portal/AdminDashboard';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { apiRequest } from './utils/api';
 
 const VALID_PAGES: PageRoute[] = [
   'home',
@@ -102,16 +103,13 @@ export default function App() {
   }, [currentPage, settings.brandName]);
 
   const loadPublicBootstrap = useCallback(async () => {
-    try {
-      const res = await fetch('/api/public/bootstrap');
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.settings) setSettings(data.settings);
-      if (Array.isArray(data.plans) && data.plans.length > 0) {
-        setPlans(data.plans);
-      }
-    } catch {
-      // Fallback to SITE_CONFIG and DEFAULT_PLANS silently if offline
+    const res = await apiRequest<{ settings?: SiteSettings; plans?: ServicePlan[] }>(
+      '/api/public/bootstrap'
+    );
+    if (!res.ok) return;
+    if (res.data?.settings) setSettings(res.data.settings);
+    if (Array.isArray(res.data?.plans) && res.data.plans.length > 0) {
+      setPlans(res.data.plans);
     }
   }, []);
 
@@ -127,24 +125,19 @@ export default function App() {
     }
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          if (!cancelled) {
-            localStorage.removeItem(STORAGE_TOKEN_KEY);
-            setToken(null);
-            setUser(null);
-          }
-          return;
+      const res = await apiRequest<{ user?: UserAccount }>('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (!cancelled && res.status === 401) {
+          localStorage.removeItem(STORAGE_TOKEN_KEY);
+          setToken(null);
+          setUser(null);
         }
-        const data = await res.json();
-        if (!cancelled && data.user) {
-          setUser(data.user);
-        }
-      } catch {
-        // Keep existing local state on transient network failure
+        return;
+      }
+      if (!cancelled && res.data?.user) {
+        setUser(res.data.user);
       }
     })();
     return () => {

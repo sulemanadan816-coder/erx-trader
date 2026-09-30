@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PageRoute, SiteSettings, UserAccount } from '../../types';
+import { apiRequest } from '../../utils/api';
 
 interface AuthPageProps {
   mode: 'login' | 'register';
@@ -46,33 +47,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         ? { identifier: identifier.trim(), password }
         : { name: name.trim(), identifier: identifier.trim(), password };
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
+      const res = await apiRequest<{ token: string; user: UserAccount; error?: string }>(
+        endpoint,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
+      );
 
-      if (!res.ok) {
-        setError(data.error || 'Authentication failed. Please check your details.');
+      if (!res.ok || !res.data?.token || !res.data?.user) {
+        setError(res.error || 'Authentication failed. Please check your details.');
       } else {
-        onAuthSuccess(data.token, data.user);
+        onAuthSuccess(res.data.token, res.data.user);
       }
-    } catch {
-      setError('Network error while connecting to the server. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const fillDemoAccount = (type: 'client' | 'admin') => {
+  const loginWithPreconfiguredAccount = async (type: 'client' | 'admin') => {
     setError(null);
-    if (type === 'admin') {
-      setIdentifier('admin@rextraders.com');
-      setPassword('RexAdmin2026!');
-    } else {
-      setIdentifier('client@rextraders.com');
-      setPassword('RexClient2026!');
+    const targetIdentifier =
+      type === 'admin' ? 'admin@rextraders.com' : 'client@rextraders.com';
+    const targetPassword = type === 'admin' ? 'RexAdmin2026!' : 'RexClient2026!';
+    setIdentifier(targetIdentifier);
+    setPassword(targetPassword);
+
+    setLoading(true);
+    try {
+      const res = await apiRequest<{ token: string; user: UserAccount; error?: string }>(
+        '/api/auth/login',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            identifier: targetIdentifier,
+            password: targetPassword,
+          }),
+        }
+      );
+
+      if (!res.ok || !res.data?.token || !res.data?.user) {
+        setError(res.error || 'Authentication failed. Please check your details.');
+      } else {
+        onAuthSuccess(res.data.token, res.data.user);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -207,25 +227,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </form>
 
           {isLogin && (
-            <div className="mt-6 pt-5 border-t border-slate-200">
-              <div className="text-xs font-semibold text-slate-700 mb-2">
-                Quick Portal Access (Pre-configured Accounts)
+            <div className="mt-6 pt-5 border-t border-slate-200 space-y-3">
+              <div className="text-xs font-semibold text-slate-700">
+                One-Click Portal Sign In (Pre-configured Accounts)
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => fillDemoAccount('client')}
-                  className="py-2 px-3 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg text-center cursor-pointer whitespace-nowrap"
+                  disabled={loading}
+                  onClick={() => loginWithPreconfiguredAccount('client')}
+                  className="py-2.5 px-3 text-xs font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-center cursor-pointer whitespace-nowrap"
                 >
-                  Fill Client Account
+                  Sign In as Client
                 </button>
                 <button
                   type="button"
-                  onClick={() => fillDemoAccount('admin')}
-                  className="py-2 px-3 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg text-center cursor-pointer whitespace-nowrap"
+                  disabled={loading}
+                  onClick={() => loginWithPreconfiguredAccount('admin')}
+                  className="py-2.5 px-3 text-xs font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-center cursor-pointer whitespace-nowrap"
                 >
-                  Fill Admin Account
+                  Sign In as Admin
                 </button>
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-600 space-y-1">
+                <div>Client: client@rextraders.com / RexClient2026!</div>
+                <div>Admin: admin@rextraders.com / RexAdmin2026!</div>
               </div>
             </div>
           )}
