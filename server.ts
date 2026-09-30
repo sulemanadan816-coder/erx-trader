@@ -1,3 +1,5 @@
+process.env.VITE_CONFIG_NATIVE_IGNORE_WARNING = 'true';
+
 import express, { type Request, type Response, type NextFunction } from 'express';
 import path from 'path';
 import crypto from 'crypto';
