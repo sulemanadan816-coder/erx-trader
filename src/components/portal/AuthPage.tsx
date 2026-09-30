@@ -65,37 +65,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  const loginWithPreconfiguredAccount = async (type: 'client' | 'admin') => {
-    setError(null);
-    const targetIdentifier =
-      type === 'admin' ? 'admin@rextraders.com' : 'client@rextraders.com';
-    const targetPassword = type === 'admin' ? 'RexAdmin2026!' : 'RexClient2026!';
-    setIdentifier(targetIdentifier);
-    setPassword(targetPassword);
-
-    setLoading(true);
-    try {
-      const res = await apiRequest<{ token: string; user: UserAccount; error?: string }>(
-        '/api/auth/login',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            identifier: targetIdentifier,
-            password: targetPassword,
-          }),
-        }
-      );
-
-      if (!res.ok || !res.data?.token || !res.data?.user) {
-        setError(res.error || 'Authentication failed. Please check your details.');
-      } else {
-        onAuthSuccess(res.data.token, res.data.user);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <section className="py-14 sm:py-20 bg-slate-50">
       <div className="max-w-md mx-auto px-4 sm:px-6">
@@ -103,7 +72,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           <div className="text-xs text-slate-500 mb-2">
             <span>{settings.brandName}</span>
             <span aria-hidden="true"> · </span>
-            <span>Client &amp; Admin Portal</span>
+            <span>Official Client Portal</span>
           </div>
 
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -111,7 +80,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </h1>
           <p className="mt-2 text-xs text-slate-600 leading-relaxed">
             {isLogin
-              ? 'Access your dashboard to manage your service plan and track Easypaisa payment verifications.'
+              ? 'Access your account dashboard to manage your service plan, wallet balance, and withdrawal requests.'
               : 'Register an account to select a REX TRADERS plan and submit payment references for verification.'}
           </p>
 
@@ -225,38 +194,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 : 'Create Client Account'}
             </button>
           </form>
-
-          {isLogin && (
-            <div className="mt-6 pt-5 border-t border-slate-200 space-y-3">
-              <div className="text-xs font-semibold text-slate-700">
-                One-Click Portal Sign In (Pre-configured Accounts)
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => loginWithPreconfiguredAccount('client')}
-                  className="py-2.5 px-3 text-xs font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-center cursor-pointer whitespace-nowrap"
-                >
-                  Sign In as Client
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => loginWithPreconfiguredAccount('admin')}
-                  className="py-2.5 px-3 text-xs font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-center cursor-pointer whitespace-nowrap"
-                >
-                  Sign In as Admin
-                </button>
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-600 space-y-1">
-                <div>Client: client@rextraders.com / RexClient2026!</div>
-                <div>Admin: admin@rextraders.com / RexAdmin2026!</div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </section>
   );
 };
+

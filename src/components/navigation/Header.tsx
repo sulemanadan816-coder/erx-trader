@@ -20,6 +20,13 @@ const NAV_ITEMS: { label: string; route: PageRoute }[] = [
   { label: 'Contact', route: 'contact' },
 ];
 
+const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
+function isExclusiveOwnerAdmin(user: UserAccount | null): boolean {
+  return Boolean(
+    user && user.role === 'admin' && user.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+  );
+}
+
 export const Header: React.FC<HeaderProps> = ({
   currentPage,
   onNavigate,
@@ -84,10 +91,12 @@ export const Header: React.FC<HeaderProps> = ({
             <>
               <button
                 type="button"
-                onClick={() => handleNavClick(user.role === 'admin' ? 'admin' : 'dashboard')}
+                onClick={() =>
+                  handleNavClick(isExclusiveOwnerAdmin(user) ? 'admin' : 'dashboard')
+                }
                 className="px-4 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
               >
-                {user.role === 'admin' ? 'Admin Panel' : 'Client Dashboard'}
+                {isExclusiveOwnerAdmin(user) ? 'Admin Panel' : 'Client Dashboard'}
               </button>
               <button
                 type="button"
@@ -169,12 +178,14 @@ export const Header: React.FC<HeaderProps> = ({
               <>
                 <button
                   type="button"
-                  onClick={() => handleNavClick(user.role === 'admin' ? 'admin' : 'dashboard')}
+                  onClick={() =>
+                    handleNavClick(isExclusiveOwnerAdmin(user) ? 'admin' : 'dashboard')
+                  }
                   className="w-full py-2.5 px-4 text-sm font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg text-center"
                 >
-                  {user.role === 'admin' ? 'Open Admin Panel' : 'Open Client Dashboard'}
+                  {isExclusiveOwnerAdmin(user) ? 'Open Admin Panel' : 'Open Client Dashboard'}
                 </button>
-                {user.role === 'admin' && (
+                {isExclusiveOwnerAdmin(user) && (
                   <button
                     type="button"
                     onClick={() => handleNavClick('dashboard')}

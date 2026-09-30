@@ -23,17 +23,21 @@ import type {
 
 const TOKEN_SECRET = process.env.SESSION_SECRET || 'rex-traders-hmac-secret-key-2026-prod';
 
-// Pre-computed scrypt hashes for seeded accounts so createInitialDb() never blocks the event loop
-const DEFAULT_ADMIN_PASSWORD_HASH =
-  '999bbb5c43dca034a75792ab5c0d7b9a:abfca530d9a79b8bba88e3e0c99314eed44b9bb5946195211dc085b44cf4edd36b50346919ec48f971d4def1bae6373a41117390a11f8008ba94f82ec27d07a5';
-const DEFAULT_CLIENT_PASSWORD_HASH =
-  '2b2fb7c338ca016f82fcb3040ca12a22:7a297f0499c88226a1f736aff551da75e9e4b80490f276e3cd8a76865841e38a8457c4da85b8a23e40723af6ed862a8e81dd83108dba75e3064d7ffe33c5c07f';
+export const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
 
 export function hashPassword(password: string, salt?: string): string {
   const useSalt = salt || crypto.randomBytes(16).toString('hex');
   const derived = crypto.scryptSync(password, useSalt, 64).toString('hex');
   return `${useSalt}:${derived}`;
 }
+
+// Pre-computed scrypt hashes for seeded accounts so createInitialDb() never blocks the event loop
+const DEFAULT_OWNER_ADMIN_HASH = hashPassword(
+  'Suleman@Rex2026!',
+  '999bbb5c43dca034a75792ab5c0d7b9a'
+);
+const DEFAULT_CLIENT_PASSWORD_HASH =
+  '2b2fb7c338ca016f82fcb3040ca12a22:7a297f0499c88226a1f736aff551da75e9e4b80490f276e3cd8a76865841e38a8457c4da85b8a23e40723af6ed862a8e81dd83108dba75e3064d7ffe33c5c07f';
 
 export function verifyPassword(password: string, storedHash: string): boolean {
   const [salt, key] = storedHash.split(':');
@@ -422,10 +426,10 @@ export function createInitialDb(): DatabaseSchema {
     },
     users: [
       {
-        id: 'usr-admin-1',
-        name: 'REX TRADERS Administrator',
-        identifier: 'admin@rextraders.com',
-        passwordHash: DEFAULT_ADMIN_PASSWORD_HASH,
+        id: 'usr-admin-owner',
+        name: 'Suleman Adan (REX TRADERS Owner)',
+        identifier: OWNER_ADMIN_EMAIL,
+        passwordHash: DEFAULT_OWNER_ADMIN_HASH,
         role: 'admin',
         status: 'ACTIVE',
         activePlanId: null,
@@ -434,29 +438,20 @@ export function createInitialDb(): DatabaseSchema {
       },
       {
         id: 'usr-client-1',
-        name: 'Demo Client Account [TEST/DEMO]',
+        name: 'Client Account',
         identifier: 'client@rextraders.com',
         passwordHash: DEFAULT_CLIENT_PASSWORD_HASH,
         role: 'user',
         status: 'ACTIVE',
         activePlanId: null,
-        savedPayoutAccounts: [
-          {
-            id: 'spa-demo-1',
-            methodId: 'wm-easypaisa',
-            methodName: 'Easypaisa',
-            accountTitle: 'Demo Client Account',
-            accountNumber: '03001234567',
-            createdAt: now,
-          },
-        ],
+        savedPayoutAccounts: [],
         createdAt: now,
       },
     ],
     wallets: [
       {
-        id: 'wal-usr-admin-1',
-        userId: 'usr-admin-1',
+        id: 'wal-usr-admin-owner',
+        userId: 'usr-admin-owner',
         availableBalance: 0,
         pendingBalance: 0,
         reservedWithdrawalBalance: 0,
@@ -559,15 +554,30 @@ export class LedgerEngine {
 
       const validPlanIds = new Set(resolvedPlans.map((p) => p.id));
 
-      const db: DatabaseSchema = {
-        settings: parsed.settings || fallback.settings,
-        users: (parsed.users || fallback.users).map((u) => ({
+      // Purge any legacy admin@rextraders.com and strictly enforce that ONLY OWNER_ADMIN_EMAIL can have role='admin'
+      const rawUsers = (parsed.users || fallback.users).filter(
+        (u) => u.identifier.toLowerCase() !== 'admin@rextraders.com'
+      );
+
+      const normalizedUsers: StoredUserRecord[] = rawUsers.map((u) => {
+        const isOwner = u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL;
+        return {
           ...u,
-          status: u.status || 'ACTIVE',
+          role: isOwner ? 'admin' : 'user',
+          status: isOwner ? 'ACTIVE' : u.status || 'ACTIVE',
           activePlanId:
             u.activePlanId && validPlanIds.has(u.activePlanId) ? u.activePlanId : null,
           savedPayoutAccounts: Array.isArray(u.savedPayoutAccounts) ? u.savedPayoutAccounts : [],
-        })),
+        };
+      });
+
+      if (!normalizedUsers.some((u) => u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL)) {
+        normalizedUsers.unshift(fallback.users[0]);
+      }
+
+      const db: DatabaseSchema = {
+        settings: parsed.settings || fallback.settings,
+        users: normalizedUsers,
         wallets: Array.isArray(parsed.wallets) ? parsed.wallets : fallback.wallets,
         ledgerEntries: Array.isArray(parsed.ledgerEntries) ? parsed.ledgerEntries : [],
         unifiedTransactions: Array.isArray(parsed.unifiedTransactions)
@@ -946,7 +956,12 @@ export class LedgerEngine {
     userAgent?: string;
   }): Promise<PaymentTransaction> {
     return this.runInTransaction((db) => {
-      const admin = db.users.find((u) => u.id === params.adminId && u.role === 'admin');
+      const admin = db.users.find(
+        (u) =>
+          u.id === params.adminId &&
+          u.role === 'admin' &&
+          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+      );
       if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
 
       const deposit = db.transactions.find((t) => t.id === params.depositId);
@@ -1455,7 +1470,12 @@ export class LedgerEngine {
     userAgent?: string;
   }): Promise<WithdrawalRequest> {
     return this.runInTransaction((db) => {
-      const admin = db.users.find((u) => u.id === params.adminId && u.role === 'admin');
+      const admin = db.users.find(
+        (u) =>
+          u.id === params.adminId &&
+          u.role === 'admin' &&
+          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+      );
       if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
 
       const wd = db.withdrawals.find((w) => w.id === params.withdrawalId);
@@ -1686,7 +1706,12 @@ export class LedgerEngine {
     userAgent?: string;
   }): Promise<{ wallet: WalletAccount; ledgerEntry: LedgerEntry }> {
     return this.runInTransaction((db) => {
-      const admin = db.users.find((u) => u.id === params.adminId && u.role === 'admin');
+      const admin = db.users.find(
+        (u) =>
+          u.id === params.adminId &&
+          u.role === 'admin' &&
+          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+      );
       if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
 
       const user = db.users.find((u) => u.id === params.targetUserId);
@@ -1780,8 +1805,13 @@ export class LedgerEngine {
     userAgent?: string;
   }): Promise<WithdrawalMethodConfig> {
     return this.runInTransaction((db) => {
-      const admin = db.users.find((u) => u.id === params.adminId && u.role === 'admin');
-      if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
+      const admin = db.users.find(
+        (u) =>
+          u.id === params.adminId &&
+          u.role === 'admin' &&
+          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+      );
+      if (!admin) throw new Error('Unauthorized: Exclusive Owner Administrator privileges required.');
 
       if (params.method.id) {
         const idx = db.withdrawalMethods.findIndex((m) => m.id === params.method.id);
@@ -1829,6 +1859,48 @@ export class LedgerEngine {
         });
         return newMethod;
       }
+    });
+  }
+
+  // --- 9. Owner Admin Change Password ---
+  public async adminChangePassword(params: {
+    adminId: string;
+    currentPassword: string;
+    newPassword: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<void> {
+    return this.runInTransaction((db) => {
+      const admin = db.users.find(
+        (u) =>
+          u.id === params.adminId &&
+          u.role === 'admin' &&
+          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+      );
+      if (!admin) {
+        throw new Error('Unauthorized: Only the owner administrator can change the admin password.');
+      }
+      if (!verifyPassword(params.currentPassword, admin.passwordHash)) {
+        throw new Error('Current password is incorrect.');
+      }
+      if (params.newPassword.length < 8) {
+        throw new Error('New password must be at least 8 characters.');
+      }
+      admin.passwordHash = hashPassword(params.newPassword);
+      this.appendAuditLog(db, {
+        adminId: admin.id,
+        adminName: admin.name,
+        action: 'OWNER_ADMIN_PASSWORD_UPDATED',
+        targetUserId: admin.id,
+        targetUserName: admin.name,
+        entityType: 'SETTINGS',
+        entityId: admin.id,
+        amount: null,
+        previousState: 'passwordHash=***',
+        newState: 'passwordHash=updated',
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+      });
     });
   }
 }

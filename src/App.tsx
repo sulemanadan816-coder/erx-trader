@@ -55,6 +55,15 @@ function resolveInitialPage(): PageRoute {
 }
 
 const STORAGE_TOKEN_KEY = 'rex_traders_auth_token';
+const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
+
+function isOwnerAdmin(account: UserAccount | null): boolean {
+  return Boolean(
+    account &&
+      account.role === 'admin' &&
+      account.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+  );
+}
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageRoute>(resolveInitialPage);
@@ -149,7 +158,7 @@ export default function App() {
     localStorage.setItem(STORAGE_TOKEN_KEY, newToken);
     setToken(newToken);
     setUser(loggedInUser);
-    if (loggedInUser.role === 'admin' && !selectedPlanId) {
+    if (isOwnerAdmin(loggedInUser) && !selectedPlanId) {
       navigate('admin');
     } else {
       navigate('dashboard');
@@ -257,7 +266,7 @@ export default function App() {
             />
           );
         }
-        if (user.role !== 'admin') {
+        if (!isOwnerAdmin(user)) {
           return (
             <ClientDashboard
               user={user}

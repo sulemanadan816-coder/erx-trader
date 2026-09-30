@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   LedgerEngine,
   type StoredUserRecord,
+  OWNER_ADMIN_EMAIL,
   hashPassword,
   verifyPassword,
   signToken,
@@ -198,8 +199,10 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
   if (!user) {
     return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
-  if (user.role !== 'admin') {
-    return res.status(403).json({ error: 'Administrator privileges required.' });
+  if (user.role !== 'admin' || user.identifier.toLowerCase() !== OWNER_ADMIN_EMAIL) {
+    return res.status(403).json({
+      error: 'Access denied. Only the verified owner can access the Administrator Console.',
+    });
   }
   req.user = user;
   next();
@@ -257,6 +260,9 @@ async function startServer() {
     try {
       const result = await ledger.runInTransaction((db) => {
         const normalizedIdentifier = sanitizeText(parsed.data.identifier).toLowerCase();
+        if (normalizedIdentifier === OWNER_ADMIN_EMAIL) {
+          throw new Error('This email address is reserved for the platform owner.');
+        }
         const existing = db.users.find(
           (u) => u.identifier.toLowerCase() === normalizedIdentifier
         );
@@ -900,6 +906,29 @@ async function startServer() {
     return res.json({ settings });
   });
 
+  app.put('/api/admin/owner-password', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    const currentPassword = String(req.body?.currentPassword || '');
+    const newPassword = String(req.body?.newPassword || '');
+    if (!currentPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        error: 'Please provide your current password and a new password of at least 8 characters.',
+      });
+    }
+    try {
+      await ledger.adminChangePassword({
+        adminId: req.user!.id,
+        currentPassword,
+        newPassword,
+        ipAddress: req.ip || '127.0.0.1',
+        userAgent: String(req.headers['user-agent'] || 'admin-console'),
+      });
+      return res.json({ success: true, message: 'Owner administrator password updated.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not update password';
+      return res.status(400).json({ error: msg });
+    }
+  });
+
   app.patch('/api/admin/users/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     try {
       const updatedUser = await ledger.runInTransaction((db) => {
@@ -911,15 +940,12 @@ async function startServer() {
           user.activePlanId = req.body.activePlanId;
         }
         if (req.body.status === 'ACTIVE' || req.body.status === 'SUSPENDED') {
-          if (user.id !== req.user!.id) {
+          if (user.id !== req.user!.id && user.identifier.toLowerCase() !== OWNER_ADMIN_EMAIL) {
             user.status = req.body.status;
           }
         }
-        if (req.body.role === 'user' || req.body.role === 'admin') {
-          if (user.id !== req.user!.id) {
-            user.role = req.body.role;
-          }
-        }
+        // Strictly forbid promoting any other account to admin
+        user.role = user.identifier.toLowerCase() === OWNER_ADMIN_EMAIL ? 'admin' : 'user';
 
         db.auditLogs.push({
           id: `AUD-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,

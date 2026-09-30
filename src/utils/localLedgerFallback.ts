@@ -44,6 +44,7 @@ interface LocalDatabaseSchema {
 }
 
 const DB_STORAGE_KEY = 'rex_traders_authoritative_ledger_v2';
+export const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
 
 const DEFAULT_WITHDRAWAL_METHODS: WithdrawalMethodConfig[] = [
   {
@@ -101,10 +102,10 @@ function createInitialLocalDb(): LocalDatabaseSchema {
     settings: { ...SITE_CONFIG },
     users: [
       {
-        id: 'usr-admin-1',
-        name: 'REX TRADERS Administrator',
-        identifier: 'admin@rextraders.com',
-        passwordPlain: 'RexAdmin2026!',
+        id: 'usr-admin-owner',
+        name: 'Suleman Adan (REX TRADERS Owner)',
+        identifier: OWNER_ADMIN_EMAIL,
+        passwordPlain: 'Suleman@Rex2026!',
         role: 'admin',
         status: 'ACTIVE',
         activePlanId: null,
@@ -134,8 +135,8 @@ function createInitialLocalDb(): LocalDatabaseSchema {
     ],
     wallets: [
       {
-        id: 'wal-usr-admin-1',
-        userId: 'usr-admin-1',
+        id: 'wal-usr-admin-owner',
+        userId: 'usr-admin-owner',
         availableBalance: 0,
         pendingBalance: 0,
         reservedWithdrawalBalance: 0,
@@ -200,6 +201,16 @@ function loadDb(): LocalDatabaseSchema {
       const init = createInitialLocalDb();
       localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(init));
       return init;
+    }
+    const init = createInitialLocalDb();
+    parsed.users = parsed.users
+      .filter((u) => u.identifier.toLowerCase() !== 'admin@rextraders.com')
+      .map((u) => ({
+        ...u,
+        role: u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL ? 'admin' : 'user',
+      }));
+    if (!parsed.users.some((u) => u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL)) {
+      parsed.users.unshift(init.users[0]);
     }
     return parsed;
   } catch {
@@ -360,6 +371,9 @@ export async function handleLocalLedgerFallback<T = any>(
     if (identifier.length < 4) return fail('Valid email or mobile number is required.');
     if (password.length < 6) return fail('Password must be at least 6 characters.');
 
+    if (identifier === OWNER_ADMIN_EMAIL) {
+      return fail('This email address is reserved for the platform owner.', 403);
+    }
     if (db.users.some((u) => u.identifier.toLowerCase() === identifier)) {
       return fail('An account with this email or phone number already exists.', 409);
     }
@@ -775,9 +789,9 @@ export async function handleLocalLedgerFallback<T = any>(
     return ok({ account: acc }, 201);
   }
 
-  // Admin routes
-  if (user.role !== 'admin') {
-    return fail('Administrator privileges required.', 403);
+  // Admin routes: Strictly restricted to OWNER_ADMIN_EMAIL
+  if (user.role !== 'admin' || user.identifier.toLowerCase() !== OWNER_ADMIN_EMAIL) {
+    return fail('Access denied. Only the verified owner can access the Administrator Console.', 403);
   }
 
   if (endpoint === '/api/admin/overview' && method === 'GET') {
@@ -1023,6 +1037,19 @@ export async function handleLocalLedgerFallback<T = any>(
     if (body.heroHeadline) db.settings.heroHeadline = body.heroHeadline;
     if (body.heroSubheadline) db.settings.heroSubheadline = body.heroSubheadline;
     return ok({ settings: db.settings });
+  }
+
+  if (endpoint === '/api/admin/owner-password' && method === 'PUT') {
+    const currentPassword = String(body.currentPassword || '');
+    const newPassword = String(body.newPassword || '');
+    if (user.passwordPlain !== currentPassword) {
+      return fail('Current password is incorrect.', 400);
+    }
+    if (newPassword.length < 8) {
+      return fail('New password must be at least 8 characters.', 400);
+    }
+    user.passwordPlain = newPassword;
+    return ok({ success: true, message: 'Owner administrator password updated.' });
   }
 
   if (endpoint === '/api/admin/withdrawal-methods' && method === 'POST') {

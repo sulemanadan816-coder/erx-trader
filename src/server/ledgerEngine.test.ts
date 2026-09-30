@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import {
   LedgerEngine,
+  OWNER_ADMIN_EMAIL,
   verifyPassword,
   signToken,
   verifyToken,
@@ -16,15 +17,17 @@ async function runAllTests() {
 
   console.log('Running REX TRADERS Transactional Ledger & Withdrawal Test Suite...\n');
 
-  // 1. Test Login & Authentication Token Signing/Verification
+  // 1. Test Login & Authentication Token Signing/Verification (Exclusive Owner Admin)
   {
     const db = engine.readDbSync();
-    const admin = db.users.find((u) => u.identifier === 'admin@rextraders.com')!;
+    const admin = db.users.find((u) => u.identifier === OWNER_ADMIN_EMAIL)!;
     const client = db.users.find((u) => u.identifier === 'client@rextraders.com')!;
+    const legacyAdmin = db.users.find((u) => u.identifier === 'admin@rextraders.com');
 
-    assert.ok(admin, 'Seeded admin user should exist');
+    assert.ok(admin, 'Seeded exclusive owner admin user should exist');
+    assert.strictEqual(legacyAdmin, undefined, 'Legacy admin@rextraders.com must not exist');
     assert.ok(client, 'Seeded client user should exist');
-    assert.strictEqual(verifyPassword('RexAdmin2026!', admin.passwordHash), true);
+    assert.strictEqual(verifyPassword('Suleman@Rex2026!', admin.passwordHash), true);
     assert.strictEqual(verifyPassword('WrongPassword', admin.passwordHash), false);
 
     const token = signToken({
@@ -100,7 +103,7 @@ async function runAllTests() {
   // 5. Test Payment Approval (Credits availableBalance, clears pending, creates immutable LedgerEntry & AuditLog)
   {
     const approved = await engine.reviewDeposit({
-      adminId: 'usr-admin-1',
+      adminId: 'usr-admin-owner',
       depositId,
       status: 'Approved',
       adminNotes: 'Verified against Easypaisa 03260767504 statement',
@@ -181,7 +184,7 @@ async function runAllTests() {
   // 9. Test Withdrawal Rejection (Releases reserved funds back to availableBalance)
   {
     const rejected = await engine.adminUpdateWithdrawal({
-      adminId: 'usr-admin-1',
+      adminId: 'usr-admin-owner',
       withdrawalId: firstWithdrawalId,
       status: 'REJECTED',
       adminNotes: 'Account number verification mismatch',
@@ -247,7 +250,7 @@ async function runAllTests() {
 
     // Move to PROCESSING first
     const proc = await engine.adminUpdateWithdrawal({
-      adminId: 'usr-admin-1',
+      adminId: 'usr-admin-owner',
       withdrawalId: targetWdId,
       status: 'PROCESSING',
       adminNotes: 'Approved for payout processing',
@@ -258,7 +261,7 @@ async function runAllTests() {
     await assert.rejects(
       async () => {
         await engine.adminUpdateWithdrawal({
-          adminId: 'usr-admin-1',
+          adminId: 'usr-admin-owner',
           withdrawalId: targetWdId,
           status: 'COMPLETED',
           confirmRealPayoutSent: false,
@@ -270,7 +273,7 @@ async function runAllTests() {
 
     // Now mark COMPLETED with confirmRealPayoutSent: true and payoutReference
     const completed = await engine.adminUpdateWithdrawal({
-      adminId: 'usr-admin-1',
+      adminId: 'usr-admin-owner',
       withdrawalId: targetWdId,
       status: 'COMPLETED',
       confirmRealPayoutSent: true,

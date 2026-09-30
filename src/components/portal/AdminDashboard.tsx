@@ -104,6 +104,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [heroSubheadlineInput, setHeroSubheadlineInput] = useState<string>(
     settings.heroSubheadline
   );
+  const [currentOwnerPassword, setCurrentOwnerPassword] = useState('');
+  const [newOwnerPassword, setNewOwnerPassword] = useState('');
 
   const fetchAdminOverview = useCallback(async () => {
     setLoading(true);
@@ -424,6 +426,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleUpdateOwnerPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!currentOwnerPassword || newOwnerPassword.length < 8) {
+      setError('Enter your current password and a new password of at least 8 characters.');
+      return;
+    }
+    const res = await apiRequest('/api/admin/owner-password', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        currentPassword: currentOwnerPassword,
+        newPassword: newOwnerPassword,
+      }),
+    });
+    if (!res.ok) {
+      setError(res.error || 'Failed to update owner password.');
+    } else {
+      setCurrentOwnerPassword('');
+      setNewOwnerPassword('');
+      showFlash('Owner administrator password updated and logged in audit trail.');
+      fetchAdminOverview();
+    }
+  };
+
   const filteredWithdrawals =
     wdFilter === 'ALL' ? withdrawals : withdrawals.filter((w) => w.status === wdFilter);
 
@@ -439,7 +466,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="text-xs text-slate-500 mb-1">
               <span>{settings.brandName}</span>
               <span aria-hidden="true"> · </span>
-              <span>Server-Enforced Administrator Console</span>
+              <span>Exclusive Owner Console (sulemanadan816@gmail.com)</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               Withdrawals, Deposits, Ledger &amp; Audit Management
@@ -1588,82 +1615,130 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {/* ==================== TAB 9: LOGO & WEBSITE SETTINGS ==================== */}
         {activeTab === 'settings' && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-2xl space-y-5">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Official {settings.brandName} Logo &amp; Hero Configuration
-              </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Official {settings.brandName} Logo &amp; Hero Configuration
+                </h2>
+              </div>
+
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Upload Official Logo Image
+                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Choose Logo File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrlInput('/rex-traders-logo.svg')}
+                      className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                    >
+                      Use Default Official Logo
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Logo URL
+                  </label>
+                  <input
+                    type="text"
+                    value={logoUrlInput}
+                    onChange={(e) => setLogoUrlInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs font-mono border border-slate-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Hero Headline
+                  </label>
+                  <input
+                    type="text"
+                    value={heroHeadlineInput}
+                    onChange={(e) => setHeroHeadlineInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Hero Subheadline
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={heroSubheadlineInput}
+                    onChange={(e) => setHeroSubheadlineInput(e.target.value)}
+                    className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg cursor-pointer"
+                >
+                  Save Website Settings
+                </button>
+              </form>
             </div>
 
-            <form onSubmit={handleSaveSettings} className="space-y-4">
+            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Upload Official Logo Image
-                </label>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Choose Logo File</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoFileUpload}
-                      className="hidden"
-                    />
+                <h2 className="text-lg font-bold text-slate-900">
+                  Exclusive Owner Access &amp; Password
+                </h2>
+                <p className="text-xs text-slate-600 mt-1">
+                  Administrator Console access is strictly locked to{' '}
+                  <strong className="font-mono text-slate-900">sulemanadan816@gmail.com</strong>. No
+                  other account can access or be promoted to administrator.
+                </p>
+              </div>
+
+              <form onSubmit={handleUpdateOwnerPassword} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Current Owner Password
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setLogoUrlInput('/rex-traders-logo.svg')}
-                    className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
-                  >
-                    Use Default Official Logo
-                  </button>
+                  <input
+                    type="password"
+                    value={currentOwnerPassword}
+                    onChange={(e) => setCurrentOwnerPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg"
+                  />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Logo URL
-                </label>
-                <input
-                  type="text"
-                  value={logoUrlInput}
-                  onChange={(e) => setLogoUrlInput(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-300 rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Hero Headline
-                </label>
-                <input
-                  type="text"
-                  value={heroHeadlineInput}
-                  onChange={(e) => setHeroHeadlineInput(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Hero Subheadline
-                </label>
-                <textarea
-                  rows={3}
-                  value={heroSubheadlineInput}
-                  onChange={(e) => setHeroSubheadlineInput(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="px-5 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg cursor-pointer"
-              >
-                Save Website Settings
-              </button>
-            </form>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    New Owner Password (min 8 characters)
+                  </label>
+                  <input
+                    type="password"
+                    value={newOwnerPassword}
+                    onChange={(e) => setNewOwnerPassword(e.target.value)}
+                    placeholder="Enter new strong password"
+                    className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 px-4 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg cursor-pointer"
+                >
+                  Update Owner Password
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </div>
