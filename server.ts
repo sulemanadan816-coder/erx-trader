@@ -1,471 +1,20 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { createServer as createViteServer } from 'vite';
-import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { z } from 'zod';
+import {
+  LedgerEngine,
+  StoredUserRecord,
+  hashPassword,
+  verifyPassword,
+  signToken,
+  verifyToken,
+  maskAccountNumber,
+} from './src/server/ledgerEngine';
 
 const PORT = 3000;
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'rex_traders_db.json');
-const TOKEN_SECRET = process.env.SESSION_SECRET || 'rex-traders-hmac-secret-key-2026-prod';
-
-// --- Password & Token Utilities ---
-function hashPassword(password: string, salt?: string): string {
-  const useSalt = salt || crypto.randomBytes(16).toString('hex');
-  const derived = crypto.scryptSync(password, useSalt, 64).toString('hex');
-  return `${useSalt}:${derived}`;
-}
-
-function verifyPassword(password: string, storedHash: string): boolean {
-  const [salt, key] = storedHash.split(':');
-  if (!salt || !key) return false;
-  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(key, 'hex'), Buffer.from(derived, 'hex'));
-}
-
-interface TokenPayload {
-  userId: string;
-  role: 'user' | 'admin';
-  exp: number;
-}
-
-function signToken(payload: TokenPayload): string {
-  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('base64url');
-  return `${data}.${sig}`;
-}
-
-function verifyToken(token: string): TokenPayload | null {
-  try {
-    const [data, sig] = token.split('.');
-    if (!data || !sig) return null;
-    const expectedSig = crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('base64url');
-    if (sig !== expectedSig) return null;
-    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf-8')) as TokenPayload;
-    if (Date.now() > payload.exp) return null;
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
-// --- Database Types & Initial Seed ---
-interface StoredUser {
-  id: string;
-  name: string;
-  identifier: string;
-  passwordHash: string;
-  role: 'user' | 'admin';
-  activePlanId: string | null;
-  createdAt: string;
-}
-
-interface StoredPlan {
-  id: string;
-  name: string;
-  targetAudience: string;
-  price: string;
-  dailyProfit?: string;
-  totalProfit?: string;
-  currency: string;
-  duration: string;
-  description: string;
-  features: string[];
-  ctaText: string;
-  isPopular?: boolean;
-  active: boolean;
-}
-
-interface StoredTransaction {
-  id: string;
-  userId: string;
-  userName: string;
-  userIdentifier: string;
-  planId: string;
-  planName: string;
-  transactionId: string;
-  amount: string;
-  paymentMethod: string;
-  senderNumber: string;
-  submittedAt: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  adminNotes: string;
-  reviewedAt: string | null;
-}
-
-interface StoredInquiry {
-  id: string;
-  name: string;
-  contactInfo: string;
-  subject: string;
-  message: string;
-  status: 'Open' | 'In Progress' | 'Resolved';
-  adminReply: string;
-  createdAt: string;
-}
-
-interface StoredSettings {
-  brandName: string;
-  logoUrl: string | null;
-  logoAlt: string;
-  whatsappChannelUrl: string;
-  telegramSupportUrl: string;
-  telegramHandle: string;
-  easypaisaNumber: string;
-  easypaisaAccountLabel: string;
-  heroHeadline: string;
-  heroSubheadline: string;
-  announcementText: string;
-}
-
-interface DatabaseSchema {
-  settings: StoredSettings;
-  users: StoredUser[];
-  plans: StoredPlan[];
-  transactions: StoredTransaction[];
-  inquiries: StoredInquiry[];
-}
-
-const INITIAL_PLANS: StoredPlan[] = [
-  {
-    id: 'plan-1200',
-    name: 'Plan 01 — 1,200 Investment',
-    targetAudience: 'انویسٹمنٹ 1200 · Starter 30-Day Package',
-    price: '1,200 PKR',
-    dailyProfit: '600 PKR',
-    totalProfit: '18,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Entry-level 30-day package with Rs. 600 daily profit and Rs. 18,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 1,200',
-      'Daily Profit (روزانہ منافع): Rs. 600',
-      'Total Profit (منافع مکمل): Rs. 18,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-3300',
-    name: 'Plan 02 — 3,300 Investment',
-    targetAudience: 'انویسٹمنٹ 3300 · Basic 30-Day Package',
-    price: '3,300 PKR',
-    dailyProfit: '1,650 PKR',
-    totalProfit: '49,500 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Basic 30-day package with Rs. 1,650 daily profit and Rs. 49,500 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 3,300',
-      'Daily Profit (روزانہ منافع): Rs. 1,650',
-      'Total Profit (منافع مکمل): Rs. 49,500',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-8000',
-    name: 'Plan 03 — 8,000 Investment',
-    targetAudience: 'انویسٹمنٹ 8000 · Standard 30-Day Package',
-    price: '8,000 PKR',
-    dailyProfit: '4,000 PKR',
-    totalProfit: '120,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Standard 30-day package with Rs. 4,000 daily profit and Rs. 120,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 8,000',
-      'Daily Profit (روزانہ منافع): Rs. 4,000',
-      'Total Profit (منافع مکمل): Rs. 120,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: true,
-    active: true,
-  },
-  {
-    id: 'plan-15000',
-    name: 'Plan 04 — 15,000 Investment',
-    targetAudience: 'انویسٹمنٹ 15000 · Silver 30-Day Package',
-    price: '15,000 PKR',
-    dailyProfit: '7,500 PKR',
-    totalProfit: '225,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Silver 30-day package with Rs. 7,500 daily profit and Rs. 225,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 15,000',
-      'Daily Profit (روزانہ منافع): Rs. 7,500',
-      'Total Profit (منافع مکمل): Rs. 225,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-28000',
-    name: 'Plan 05 — 28,000 Investment',
-    targetAudience: 'انویسٹمنٹ 28000 · Growth 30-Day Package',
-    price: '28,000 PKR',
-    dailyProfit: '14,000 PKR',
-    totalProfit: '420,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Growth 30-day package with Rs. 14,000 daily profit and Rs. 420,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 28,000',
-      'Daily Profit (روزانہ منافع): Rs. 14,000',
-      'Total Profit (منافع مکمل): Rs. 420,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-45000',
-    name: 'Plan 06 — 45,000 Investment',
-    targetAudience: 'انویسٹمنٹ 45000 · Gold 30-Day Package',
-    price: '45,000 PKR',
-    dailyProfit: '22,500 PKR',
-    totalProfit: '675,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Gold 30-day package with Rs. 22,500 daily profit and Rs. 675,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 45,000',
-      'Daily Profit (روزانہ منافع): Rs. 22,500',
-      'Total Profit (منافع مکمل): Rs. 675,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: true,
-    active: true,
-  },
-  {
-    id: 'plan-62000',
-    name: 'Plan 07 — 62,000 Investment',
-    targetAudience: 'انویسٹمنٹ 62000 · Premier 30-Day Package',
-    price: '62,000 PKR',
-    dailyProfit: '31,000 PKR',
-    totalProfit: '930,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Premier 30-day package with Rs. 31,000 daily profit and Rs. 930,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 62,000',
-      'Daily Profit (روزانہ منافع): Rs. 31,000',
-      'Total Profit (منافع مکمل): Rs. 930,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-85000',
-    name: 'Plan 08 — 85,000 Investment',
-    targetAudience: 'انویسٹمنٹ 85000 · Platinum 30-Day Package',
-    price: '85,000 PKR',
-    dailyProfit: '42,500 PKR',
-    totalProfit: '1,275,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Platinum 30-day package with Rs. 42,500 daily profit and Rs. 1,275,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 85,000',
-      'Daily Profit (روزانہ منافع): Rs. 42,500',
-      'Total Profit (منافع مکمل): Rs. 1,275,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-115000',
-    name: 'Plan 09 — 115,000 Investment',
-    targetAudience: 'انویسٹمنٹ 115000 · Executive 30-Day Package',
-    price: '115,000 PKR',
-    dailyProfit: '57,500 PKR',
-    totalProfit: '1,275,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Executive 30-day package with Rs. 57,500 daily profit and Rs. 1,275,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 115,000',
-      'Daily Profit (روزانہ منافع): Rs. 57,500',
-      'Total Profit (منافع مکمل): Rs. 1,275,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-180000',
-    name: 'Plan 10 — 180,000 Investment',
-    targetAudience: 'انویسٹمنٹ 180000 · Diamond 30-Day Package',
-    price: '180,000 PKR',
-    dailyProfit: '90,000 PKR',
-    totalProfit: '2,700,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Diamond 30-day package with Rs. 90,000 daily profit and Rs. 2,700,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 180,000',
-      'Daily Profit (روزانہ منافع): Rs. 90,000',
-      'Total Profit (منافع مکمل): Rs. 2,700,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-250000',
-    name: 'Plan 11 — 250,000 Investment',
-    targetAudience: 'انویسٹمنٹ 250000 · Elite 30-Day Package',
-    price: '250,000 PKR',
-    dailyProfit: '125,000 PKR',
-    totalProfit: '3,750,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Elite 30-day package with Rs. 125,000 daily profit and Rs. 3,750,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 250,000',
-      'Daily Profit (روزانہ منافع): Rs. 125,000',
-      'Total Profit (منافع مکمل): Rs. 3,750,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-300000',
-    name: 'Plan 12 — 300,000 Investment',
-    targetAudience: 'انویسٹمنٹ 300000 · Crown 30-Day Package',
-    price: '300,000 PKR',
-    dailyProfit: '150,000 PKR',
-    totalProfit: '4,500,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Top-tier 30-day package with Rs. 150,000 daily profit and Rs. 4,500,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 300,000',
-      'Daily Profit (روزانہ منافع): Rs. 150,000',
-      'Total Profit (منافع مکمل): Rs. 4,500,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: true,
-    active: true,
-  },
-];
-
-const INITIAL_DB: DatabaseSchema = {
-  settings: {
-    brandName: 'REX TRADERS',
-    logoUrl: '/rex-traders-logo.svg',
-    logoAlt: 'REX TRADERS Official Logo',
-    whatsappChannelUrl: 'https://whatsapp.com/channel/0029Vb5ZICEFSAt01mUETp3z',
-    telegramSupportUrl: 'https://t.me/rextrades0',
-    telegramHandle: '@rextrades0',
-    easypaisaNumber: '03260767504',
-    easypaisaAccountLabel: 'Official REX TRADERS Easypaisa Account',
-    heroHeadline: 'Smart Investment · Better Tomorrow',
-    heroSubheadline:
-      'REX TRADERS offers 12 structured 30-day investment packages from PKR 1,200 to PKR 300,000, a 3-level referral commission structure, direct support via Telegram and WhatsApp, and manual Easypaisa payment verification.',
-    announcementText:
-      'Official communication is conducted exclusively through our verified Telegram support (@rextrades0) and WhatsApp Channel.',
-  },
-  users: [
-    {
-      id: 'usr-admin-1',
-      name: 'REX TRADERS Administrator',
-      identifier: 'admin@rextraders.com',
-      passwordHash: hashPassword('RexAdmin2026!'),
-      role: 'admin',
-      activePlanId: 'plan-8000',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'usr-client-1',
-      name: 'Client Account',
-      identifier: 'client@rextraders.com',
-      passwordHash: hashPassword('RexClient2026!'),
-      role: 'user',
-      activePlanId: null,
-      createdAt: new Date().toISOString(),
-    },
-  ],
-  plans: INITIAL_PLANS,
-  transactions: [],
-  inquiries: [],
-};
-
-function loadDb(): DatabaseSchema {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify(INITIAL_DB, null, 2), 'utf-8');
-      return JSON.parse(JSON.stringify(INITIAL_DB));
-    }
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    const parsed = JSON.parse(raw) as DatabaseSchema;
-
-    // Synchronize official contact channels and logo
-    parsed.settings.whatsappChannelUrl = 'https://whatsapp.com/channel/0029Vb5ZICEFSAt01mUETp3z';
-    parsed.settings.telegramSupportUrl = 'https://t.me/rextrades0';
-    parsed.settings.easypaisaNumber = '03260767504';
-    if (!parsed.settings.logoUrl) {
-      parsed.settings.logoUrl = '/rex-traders-logo.svg';
-    }
-
-    // Migrate old placeholder plans to the 12 official REX TRADERS plans
-    const hasLegacyPlans = parsed.plans.some((p) => p.id === 'plan-standard');
-    if (hasLegacyPlans || parsed.plans.length === 0) {
-      parsed.plans = JSON.parse(JSON.stringify(INITIAL_PLANS));
-      parsed.settings.heroHeadline = INITIAL_DB.settings.heroHeadline;
-      parsed.settings.heroSubheadline = INITIAL_DB.settings.heroSubheadline;
-      saveDb(parsed);
-    }
-
-    return parsed;
-  } catch {
-    return JSON.parse(JSON.stringify(INITIAL_DB));
-  }
-}
-
-function saveDb(db: DatabaseSchema): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  const tempFile = `${DB_FILE}.tmp`;
-  fs.writeFileSync(tempFile, JSON.stringify(db, null, 2), 'utf-8');
-  fs.renameSync(tempFile, DB_FILE);
-}
+const ledger = new LedgerEngine();
 
 // --- Simple In-Memory Rate Limiter ---
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -489,7 +38,6 @@ function rateLimit(maxRequests: number, windowMs: number) {
   };
 }
 
-// --- Input Sanitization Helper ---
 function sanitizeText(str: string): string {
   return str.replace(/[<>]/g, '').trim();
 }
@@ -509,33 +57,89 @@ const LoginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-const TransactionSubmitSchema = z.object({
-  planId: z.string().min(1, 'Please select a valid service plan'),
+const DepositSubmitSchema = z.object({
+  planId: z.string().min(1, 'Please select a valid service plan or wallet deposit'),
   transactionId: z
     .string()
     .min(5, 'Easypaisa Transaction ID (TID) must be at least 5 characters')
     .max(40, 'Transaction ID is too long'),
-  amount: z.string().min(1, 'Transferred amount is required').max(40),
+  amount: z.union([z.string().min(1), z.number().positive()]),
   senderNumber: z
     .string()
     .min(10, 'Sender mobile/account number must be at least 10 digits')
     .max(20),
+  paymentProofNote: z.string().max(300).optional(),
+  creditToWalletOnly: z.boolean().optional(),
+  idempotencyKey: z.string().max(100).optional(),
 });
 
-const TransactionReviewSchema = z.object({
+const DepositReviewSchema = z.object({
   status: z.enum(['Pending', 'Approved', 'Rejected']),
   adminNotes: z.string().max(500).optional().default(''),
+});
+
+const WalletPurchaseSchema = z.object({
+  planId: z.string().min(1, 'Please select a plan to purchase'),
+  idempotencyKey: z.string().max(100).optional(),
+});
+
+const WithdrawalCreateSchema = z.object({
+  amount: z.number().positive('Withdrawal amount must be greater than zero'),
+  methodId: z.string().min(1, 'Please select a withdrawal method'),
+  accountTitle: z.string().min(2, 'Account holder name / title is required').max(100),
+  accountNumber: z.string().min(7, 'Valid account number or IBAN is required').max(50),
+  bankName: z.string().max(80).optional(),
+  saveAccount: z.boolean().optional(),
+  idempotencyKey: z.string().max(100).optional(),
+});
+
+const AdminWithdrawalUpdateSchema = z.object({
+  status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED']),
+  adminNotes: z.string().max(500).optional(),
+  confirmRealPayoutSent: z.boolean().optional(),
+  payoutReference: z.string().max(120).optional(),
+});
+
+const AdminBalanceAdjustSchema = z.object({
+  targetUserId: z.string().min(1, 'Target user is required'),
+  direction: z.enum(['CREDIT', 'DEBIT']),
+  category: z.enum(['ADJUSTMENT', 'REFUND']).default('ADJUSTMENT'),
+  amount: z.number().positive('Amount must be greater than zero'),
+  reason: z.string().min(5, 'Please provide a clear audit reason (min 5 chars)').max(300),
+});
+
+const WithdrawalMethodSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(2).max(60),
+  code: z.string().min(2).max(30),
+  minAmount: z.number().min(1),
+  maxAmount: z.number().min(1),
+  feePercent: z.number().min(0).max(50),
+  feeFixed: z.number().min(0),
+  accountLabel: z.string().min(2).max(120),
+  requiresBankName: z.boolean().default(false),
+  instructions: z.string().max(300).default(''),
+  active: z.boolean().default(true),
+});
+
+const SavedPayoutAccountSchema = z.object({
+  methodId: z.string().min(1),
+  accountTitle: z.string().min(2).max(100),
+  accountNumber: z.string().min(7).max(50),
+  bankName: z.string().max(80).optional(),
 });
 
 const PlanSchema = z.object({
   name: z.string().min(2, 'Plan name is required').max(80),
   targetAudience: z.string().min(4, 'Target audience summary is required').max(160),
   price: z.string().min(1, 'Price label is required').max(60),
+  dailyProfit: z.string().max(60).optional(),
+  totalProfit: z.string().max(60).optional(),
   currency: z.string().min(1).max(10).default('PKR'),
   duration: z.string().min(2, 'Duration is required').max(60),
   description: z.string().min(10, 'Description is required').max(400),
   features: z.array(z.string().min(1).max(140)).min(1, 'Include at least 1 feature'),
-  ctaText: z.string().min(2).max(40).default('Select Plan'),
+  ctaText: z.string().min(2).max(40).default('Invest Now'),
   isPopular: z.boolean().optional().default(false),
   active: z.boolean().optional().default(true),
 });
@@ -547,7 +151,10 @@ const InquirySchema = z.object({
     .min(4, 'Telegram username, WhatsApp number, or email is required')
     .max(100),
   subject: z.string().min(3, 'Subject is required').max(120),
-  message: z.string().min(10, 'Please provide at least 10 characters in your message').max(1500),
+  message: z
+    .string()
+    .min(10, 'Please provide at least 10 characters in your message')
+    .max(1500),
 });
 
 const InquiryUpdateSchema = z.object({
@@ -564,22 +171,22 @@ const SettingsUpdateSchema = z.object({
 
 // --- Auth Middleware ---
 interface AuthenticatedRequest extends Request {
-  user?: StoredUser;
+  user?: StoredUserRecord;
 }
 
-function getAuthenticatedUser(req: Request, db: DatabaseSchema): StoredUser | null {
+function getAuthenticatedUser(req: Request): StoredUserRecord | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
   const payload = verifyToken(token);
   if (!payload) return null;
+  const db = ledger.readDbSync();
   const user = db.users.find((u) => u.id === payload.userId);
   return user || null;
 }
 
 function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const db = loadDb();
-  const user = getAuthenticatedUser(req, db);
+  const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
@@ -588,8 +195,7 @@ function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunctio
 }
 
 function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const db = loadDb();
-  const user = getAuthenticatedUser(req, db);
+  const user = getAuthenticatedUser(req);
   if (!user) {
     return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
@@ -600,10 +206,22 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
   next();
 }
 
+function formatSafeUser(u: StoredUserRecord) {
+  return {
+    id: u.id,
+    name: u.name,
+    identifier: u.identifier,
+    role: u.role,
+    status: u.status || 'ACTIVE',
+    activePlanId: u.activePlanId,
+    savedPayoutAccounts: u.savedPayoutAccounts || [],
+    createdAt: u.createdAt,
+  };
+}
+
 async function startServer() {
   const app = express();
 
-  // Security headers
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -613,21 +231,18 @@ async function startServer() {
 
   app.use(express.json({ limit: '1mb' }));
 
-  // Ensure DB is initialized
-  loadDb();
-
-  // --- Public API Routes ---
+  // --- Public Bootstrap ---
   app.get('/api/public/bootstrap', (_req, res) => {
-    const db = loadDb();
-    const activePlans = db.plans.filter((p) => p.active);
+    const db = ledger.readDbSync();
     res.json({
       settings: db.settings,
-      plans: activePlans,
+      plans: db.plans.filter((p) => p.active),
+      withdrawalMethods: db.withdrawalMethods.filter((m) => m.active),
     });
   });
 
   // --- Auth Routes ---
-  app.post('/api/auth/register', rateLimit(15, 60_000), (req, res) => {
+  app.post('/api/auth/register', rateLimit(15, 60_000), async (req, res) => {
     const parsed = RegisterSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -635,45 +250,59 @@ async function startServer() {
       });
     }
 
-    const db = loadDb();
-    const normalizedIdentifier = sanitizeText(parsed.data.identifier).toLowerCase();
-    const existing = db.users.find((u) => u.identifier.toLowerCase() === normalizedIdentifier);
-    if (existing) {
-      return res.status(409).json({
-        error: 'An account with this email or phone number already exists.',
+    try {
+      const result = await ledger.runInTransaction((db) => {
+        const normalizedIdentifier = sanitizeText(parsed.data.identifier).toLowerCase();
+        const existing = db.users.find(
+          (u) => u.identifier.toLowerCase() === normalizedIdentifier
+        );
+        if (existing) {
+          throw new Error('An account with this email or phone number already exists.');
+        }
+
+        const now = new Date().toISOString();
+        const newUser: StoredUserRecord = {
+          id: `usr-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+          name: sanitizeText(parsed.data.name),
+          identifier: normalizedIdentifier,
+          passwordHash: hashPassword(parsed.data.password),
+          role: 'user',
+          status: 'ACTIVE',
+          activePlanId: null,
+          savedPayoutAccounts: [],
+          createdAt: now,
+        };
+
+        db.users.push(newUser);
+        ledger.getOrCreateWallet(db, newUser.id);
+        db.notifications.push({
+          id: `NOTIF-${Date.now()}`,
+          userId: newUser.id,
+          title: 'Account Created Successfully',
+          message:
+            'Welcome to REX TRADERS. Your database-backed wallet has been initialized. Submit an Easypaisa deposit or select a service plan to get started.',
+          type: 'INFO',
+          read: false,
+          createdAt: now,
+        });
+
+        return newUser;
       });
+
+      const token = signToken({
+        userId: result.id,
+        role: result.role,
+        exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.status(201).json({
+        token,
+        user: formatSafeUser(result),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Registration failed';
+      return res.status(msg.includes('already exists') ? 409 : 400).json({ error: msg });
     }
-
-    const newUser: StoredUser = {
-      id: `usr-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
-      name: sanitizeText(parsed.data.name),
-      identifier: normalizedIdentifier,
-      passwordHash: hashPassword(parsed.data.password),
-      role: 'user',
-      activePlanId: null,
-      createdAt: new Date().toISOString(),
-    };
-
-    db.users.push(newUser);
-    saveDb(db);
-
-    const token = signToken({
-      userId: newUser.id,
-      role: newUser.role,
-      exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.status(201).json({
-      token,
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        identifier: newUser.identifier,
-        role: newUser.role,
-        activePlanId: newUser.activePlanId,
-        createdAt: newUser.createdAt,
-      },
-    });
   });
 
   app.post('/api/auth/login', rateLimit(20, 60_000), (req, res) => {
@@ -684,9 +313,11 @@ async function startServer() {
       });
     }
 
-    const db = loadDb();
+    const db = ledger.readDbSync();
     const normalizedIdentifier = sanitizeText(parsed.data.identifier).toLowerCase();
-    const user = db.users.find((u) => u.identifier.toLowerCase() === normalizedIdentifier);
+    const user = db.users.find(
+      (u) => u.identifier.toLowerCase() === normalizedIdentifier
+    );
 
     if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
       return res.status(401).json({
@@ -702,98 +333,270 @@ async function startServer() {
 
     return res.json({
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        identifier: user.identifier,
-        role: user.role,
-        activePlanId: user.activePlanId,
-        createdAt: user.createdAt,
-      },
+      user: formatSafeUser(user),
     });
   });
 
   app.get('/api/auth/me', requireAuth, (req: AuthenticatedRequest, res) => {
-    const u = req.user!;
+    res.json({ user: formatSafeUser(req.user!) });
+  });
+
+  // --- Authoritative User Dashboard & Wallet Summary ---
+  app.get('/api/dashboard/summary', requireAuth, (req: AuthenticatedRequest, res) => {
+    const db = ledger.readDbSync();
+    const userId = req.user!.id;
+    const wallet = ledger.recalculateWalletDerivedMetrics(db, userId);
+
+    const deposits = db.transactions
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+    const withdrawals = db.withdrawals
+      .filter((w) => w.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const unifiedTransactions = db.unifiedTransactions
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const ledgerEntries = db.ledgerEntries
+      .filter((l) => l.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const orders = db.orders
+      .filter((o) => o.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const notifications = db.notifications
+      .filter((n) => n.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     res.json({
-      user: {
-        id: u.id,
-        name: u.name,
-        identifier: u.identifier,
-        role: u.role,
-        activePlanId: u.activePlanId,
-        createdAt: u.createdAt,
-      },
+      user: formatSafeUser(req.user!),
+      wallet,
+      deposits,
+      withdrawals,
+      unifiedTransactions,
+      ledgerEntries,
+      orders,
+      notifications,
+      withdrawalMethods: db.withdrawalMethods.filter((m) => m.active),
     });
   });
 
-  // --- Client Portal: Transactions ---
   app.get('/api/transactions/my', requireAuth, (req: AuthenticatedRequest, res) => {
-    const db = loadDb();
+    const db = ledger.readDbSync();
     const list = db.transactions
       .filter((t) => t.userId === req.user!.id)
       .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
     res.json({ transactions: list });
   });
 
+  // --- Create Deposit / Payment Submission ---
   app.post(
     '/api/transactions',
     requireAuth,
-    rateLimit(10, 60_000),
-    (req: AuthenticatedRequest, res) => {
-      const parsed = TransactionSubmitSchema.safeParse(req.body);
+    rateLimit(12, 60_000),
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = DepositSubmitSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({
-          error: parsed.error.issues[0]?.message || 'Invalid transaction details',
+          error: parsed.error.issues[0]?.message || 'Invalid deposit details',
         });
       }
 
-      const db = loadDb();
-      const plan = db.plans.find((p) => p.id === parsed.data.planId);
-      if (!plan) {
-        return res.status(404).json({ error: 'Selected plan was not found.' });
-      }
+      try {
+        const deposit = await ledger.createDeposit({
+          userId: req.user!.id,
+          planId: parsed.data.planId,
+          transactionId: sanitizeText(parsed.data.transactionId),
+          amount: parsed.data.amount,
+          senderNumber: sanitizeText(parsed.data.senderNumber),
+          paymentProofNote: parsed.data.paymentProofNote
+            ? sanitizeText(parsed.data.paymentProofNote)
+            : '',
+          creditToWalletOnly: parsed.data.creditToWalletOnly,
+          idempotencyKey: parsed.data.idempotencyKey,
+        });
 
-      const cleanTid = sanitizeText(parsed.data.transactionId);
-      const duplicate = db.transactions.find(
-        (t) => t.transactionId.toLowerCase() === cleanTid.toLowerCase()
-      );
-      if (duplicate) {
-        return res.status(409).json({
-          error: 'This Easypaisa Transaction ID has already been submitted.',
+        return res.status(201).json({
+          transaction: deposit,
+          message:
+            'Payment reference recorded with status: PENDING. An administrator will verify your Easypaisa Transaction ID before crediting your account.',
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to submit deposit';
+        return res.status(msg.includes('already been submitted') ? 409 : 400).json({
+          error: msg,
+        });
+      }
+    }
+  );
+
+  // --- Purchase Service Plan Using Available Wallet Balance ---
+  app.post(
+    '/api/orders/purchase-wallet',
+    requireAuth,
+    rateLimit(10, 60_000),
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = WalletPurchaseSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid purchase request',
         });
       }
 
-      const newTx: StoredTransaction = {
-        id: `tx-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
-        userId: req.user!.id,
-        userName: req.user!.name,
-        userIdentifier: req.user!.identifier,
-        planId: plan.id,
-        planName: plan.name,
-        transactionId: cleanTid,
-        amount: sanitizeText(parsed.data.amount),
-        paymentMethod: `Easypaisa (${db.settings.easypaisaNumber})`,
-        senderNumber: sanitizeText(parsed.data.senderNumber),
-        submittedAt: new Date().toISOString(),
-        status: 'Pending',
-        adminNotes: 'Awaiting manual administrator verification of Easypaisa transfer.',
-        reviewedAt: null,
-      };
+      try {
+        const order = await ledger.purchasePlanWithWallet({
+          userId: req.user!.id,
+          planId: parsed.data.planId,
+          idempotencyKey: parsed.data.idempotencyKey,
+        });
+        return res.status(201).json({
+          order,
+          message: `Successfully purchased and activated ${order.planName} using your Available Balance.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to purchase plan';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
 
-      db.transactions.push(newTx);
-      saveDb(db);
+  // --- Create Withdrawal Request ---
+  app.post(
+    '/api/withdrawals',
+    requireAuth,
+    rateLimit(10, 60_000),
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = WithdrawalCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid withdrawal request',
+        });
+      }
 
-      return res.status(201).json({
-        transaction: newTx,
-        message:
-          'Payment reference recorded with status: Pending. An administrator will verify your Easypaisa Transaction ID before activating your plan.',
+      try {
+        const withdrawal = await ledger.createWithdrawal({
+          userId: req.user!.id,
+          amount: parsed.data.amount,
+          methodId: parsed.data.methodId,
+          accountTitle: sanitizeText(parsed.data.accountTitle),
+          accountNumber: sanitizeText(parsed.data.accountNumber),
+          bankName: parsed.data.bankName ? sanitizeText(parsed.data.bankName) : undefined,
+          saveAccount: parsed.data.saveAccount,
+          idempotencyKey: parsed.data.idempotencyKey,
+        });
+
+        return res.status(201).json({
+          withdrawal,
+          message: `Withdrawal request ${withdrawal.id} created (Status: PENDING). Rs. ${withdrawal.amount.toLocaleString()} has been reserved from your Available Balance pending administrator review.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Withdrawal failed';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  // --- User Cancel Own Pending Withdrawal ---
+  app.post(
+    '/api/withdrawals/:id/cancel',
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const withdrawal = await ledger.cancelUserWithdrawal({
+          userId: req.user!.id,
+          withdrawalId: req.params.id,
+        });
+        return res.json({
+          withdrawal,
+          message: `Withdrawal ${withdrawal.id} has been cancelled and Rs. ${withdrawal.amount.toLocaleString()} returned to your Available Balance.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Could not cancel withdrawal';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  // --- Manage User Saved Payout Accounts ---
+  app.post(
+    '/api/profile/payout-accounts',
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = SavedPayoutAccountSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid payout account details',
+        });
+      }
+
+      try {
+        const saved = await ledger.runInTransaction((db) => {
+          const user = db.users.find((u) => u.id === req.user!.id);
+          if (!user) throw new Error('User not found.');
+          const method = db.withdrawalMethods.find((m) => m.id === parsed.data.methodId);
+          if (!method) throw new Error('Selected withdrawal method not found.');
+
+          const newAcc = {
+            id: `spa-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+            methodId: method.id,
+            methodName: method.name,
+            accountTitle: sanitizeText(parsed.data.accountTitle),
+            accountNumber: sanitizeText(parsed.data.accountNumber),
+            bankName: parsed.data.bankName ? sanitizeText(parsed.data.bankName) : undefined,
+            createdAt: new Date().toISOString(),
+          };
+          user.savedPayoutAccounts.push(newAcc);
+          return newAcc;
+        });
+
+        return res.status(201).json({ account: saved });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to save payout account';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  app.delete(
+    '/api/profile/payout-accounts/:id',
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        await ledger.runInTransaction((db) => {
+          const user = db.users.find((u) => u.id === req.user!.id);
+          if (!user) throw new Error('User not found.');
+          user.savedPayoutAccounts = user.savedPayoutAccounts.filter(
+            (a) => a.id !== req.params.id
+          );
+        });
+        return res.json({ success: true });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to delete payout account';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  app.post(
+    '/api/notifications/read-all',
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      await ledger.runInTransaction((db) => {
+        for (const n of db.notifications) {
+          if (n.userId === req.user!.id) {
+            n.read = true;
+          }
+        }
       });
+      res.json({ success: true });
     }
   );
 
   // --- Public & Client Support Inquiries ---
-  app.post('/api/inquiries', rateLimit(10, 60_000), (req, res) => {
+  app.post('/api/inquiries', rateLimit(10, 60_000), async (req, res) => {
     const parsed = InquirySchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -801,20 +604,20 @@ async function startServer() {
       });
     }
 
-    const db = loadDb();
-    const inquiry: StoredInquiry = {
-      id: `inq-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
-      name: sanitizeText(parsed.data.name),
-      contactInfo: sanitizeText(parsed.data.contactInfo),
-      subject: sanitizeText(parsed.data.subject),
-      message: sanitizeText(parsed.data.message),
-      status: 'Open',
-      adminReply: '',
-      createdAt: new Date().toISOString(),
-    };
-
-    db.inquiries.push(inquiry);
-    saveDb(db);
+    const inquiry = await ledger.runInTransaction((db) => {
+      const item = {
+        id: `inq-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        name: sanitizeText(parsed.data.name),
+        contactInfo: sanitizeText(parsed.data.contactInfo),
+        subject: sanitizeText(parsed.data.subject),
+        message: sanitizeText(parsed.data.message),
+        status: 'Open' as const,
+        adminReply: '',
+        createdAt: new Date().toISOString(),
+      };
+      db.inquiries.push(item);
+      return item;
+    });
 
     return res.status(201).json({
       inquiry,
@@ -823,24 +626,41 @@ async function startServer() {
     });
   });
 
-  // --- Admin Panel Routes (Strictly Server-Side Protected) ---
+  // --- ADMIN ROUTES (Strictly Server-Side Protected) ---
   app.get('/api/admin/overview', requireAdmin, (_req: AuthenticatedRequest, res) => {
-    const db = loadDb();
-    const safeUsers = db.users.map((u) => ({
-      id: u.id,
-      name: u.name,
-      identifier: u.identifier,
-      role: u.role,
-      activePlanId: u.activePlanId,
-      createdAt: u.createdAt,
-    }));
+    const db = ledger.readDbSync();
+    for (const u of db.users) {
+      ledger.recalculateWalletDerivedMetrics(db, u.id);
+    }
+
+    const safeUsers = db.users.map(formatSafeUser);
 
     res.json({
       settings: db.settings,
       users: safeUsers,
+      wallets: db.wallets,
       plans: db.plans,
       transactions: [...db.transactions].sort(
         (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+      ),
+      withdrawals: [...db.withdrawals]
+        .map((w) => ({
+          ...w,
+          maskedAccountNumber: w.maskedAccountNumber || maskAccountNumber(w.accountNumber),
+        }))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+      withdrawalMethods: db.withdrawalMethods,
+      ledgerEntries: [...db.ledgerEntries].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+      unifiedTransactions: [...db.unifiedTransactions].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+      orders: [...db.orders].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+      auditLogs: [...db.auditLogs].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       ),
       inquiries: [...db.inquiries].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -848,39 +668,140 @@ async function startServer() {
     });
   });
 
-  app.patch('/api/admin/transactions/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
-    const parsed = TransactionReviewSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        error: parsed.error.issues[0]?.message || 'Invalid review payload',
-      });
-    }
+  // Admin: Review Deposit
+  app.patch(
+    '/api/admin/transactions/:id',
+    requireAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = DepositReviewSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid review payload',
+        });
+      }
 
-    const db = loadDb();
-    const tx = db.transactions.find((t) => t.id === req.params.id);
-    if (!tx) {
-      return res.status(404).json({ error: 'Transaction record not found.' });
-    }
-
-    tx.status = parsed.data.status;
-    tx.adminNotes = sanitizeText(parsed.data.adminNotes);
-    tx.reviewedAt = new Date().toISOString();
-
-    // If Approved, assign the plan to the user's account
-    const user = db.users.find((u) => u.id === tx.userId);
-    if (user) {
-      if (parsed.data.status === 'Approved') {
-        user.activePlanId = tx.planId;
-      } else if (parsed.data.status === 'Rejected' && user.activePlanId === tx.planId) {
-        user.activePlanId = null;
+      try {
+        const tx = await ledger.reviewDeposit({
+          adminId: req.user!.id,
+          depositId: req.params.id,
+          status: parsed.data.status,
+          adminNotes: parsed.data.adminNotes ? sanitizeText(parsed.data.adminNotes) : '',
+          ipAddress: req.ip || '127.0.0.1',
+          userAgent: String(req.headers['user-agent'] || 'admin-console'),
+        });
+        return res.json({ transaction: tx });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to review deposit';
+        return res.status(400).json({ error: msg });
       }
     }
+  );
 
-    saveDb(db);
-    return res.json({ transaction: tx });
-  });
+  // Admin: Review / Process / Complete Withdrawal
+  app.patch(
+    '/api/admin/withdrawals/:id',
+    requireAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = AdminWithdrawalUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid withdrawal update payload',
+        });
+      }
 
-  app.post('/api/admin/plans', requireAdmin, (req: AuthenticatedRequest, res) => {
+      try {
+        const wd = await ledger.adminUpdateWithdrawal({
+          adminId: req.user!.id,
+          withdrawalId: req.params.id,
+          status: parsed.data.status,
+          adminNotes: parsed.data.adminNotes ? sanitizeText(parsed.data.adminNotes) : undefined,
+          confirmRealPayoutSent: parsed.data.confirmRealPayoutSent,
+          payoutReference: parsed.data.payoutReference
+            ? sanitizeText(parsed.data.payoutReference)
+            : undefined,
+          ipAddress: req.ip || '127.0.0.1',
+          userAgent: String(req.headers['user-agent'] || 'admin-console'),
+        });
+        return res.json({ withdrawal: wd });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to update withdrawal';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  // Admin: Controlled Balance Adjustment / Refund
+  app.post(
+    '/api/admin/wallets/adjust',
+    requireAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = AdminBalanceAdjustSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid balance adjustment payload',
+        });
+      }
+
+      try {
+        const result = await ledger.adminAdjustBalance({
+          adminId: req.user!.id,
+          targetUserId: parsed.data.targetUserId,
+          direction: parsed.data.direction,
+          category: parsed.data.category,
+          amount: parsed.data.amount,
+          reason: sanitizeText(parsed.data.reason),
+          ipAddress: req.ip || '127.0.0.1',
+          userAgent: String(req.headers['user-agent'] || 'admin-console'),
+        });
+        return res.status(201).json(result);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to adjust balance';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  // Admin: Configure Withdrawal Methods
+  app.post(
+    '/api/admin/withdrawal-methods',
+    requireAdmin,
+    async (req: AuthenticatedRequest, res) => {
+      const parsed = WithdrawalMethodSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: parsed.error.issues[0]?.message || 'Invalid withdrawal method payload',
+        });
+      }
+
+      try {
+        const method = await ledger.adminSaveWithdrawalMethod({
+          adminId: req.user!.id,
+          method: {
+            id: parsed.data.id,
+            name: sanitizeText(parsed.data.name),
+            code: sanitizeText(parsed.data.code).toUpperCase(),
+            minAmount: parsed.data.minAmount,
+            maxAmount: parsed.data.maxAmount,
+            feePercent: parsed.data.feePercent,
+            feeFixed: parsed.data.feeFixed,
+            accountLabel: sanitizeText(parsed.data.accountLabel),
+            requiresBankName: parsed.data.requiresBankName,
+            instructions: sanitizeText(parsed.data.instructions),
+            active: parsed.data.active,
+          },
+          ipAddress: req.ip || '127.0.0.1',
+          userAgent: String(req.headers['user-agent'] || 'admin-console'),
+        });
+        return res.json({ method });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to save withdrawal method';
+        return res.status(400).json({ error: msg });
+      }
+    }
+  );
+
+  // Admin: Manage Plans
+  app.post('/api/admin/plans', requireAdmin, async (req: AuthenticatedRequest, res) => {
     const parsed = PlanSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -888,70 +809,44 @@ async function startServer() {
       });
     }
 
-    const db = loadDb();
-    const newPlan: StoredPlan = {
-      id: `plan-${Date.now()}`,
-      name: sanitizeText(parsed.data.name),
-      targetAudience: sanitizeText(parsed.data.targetAudience),
-      price: sanitizeText(parsed.data.price),
-      currency: sanitizeText(parsed.data.currency),
-      duration: sanitizeText(parsed.data.duration),
-      description: sanitizeText(parsed.data.description),
-      features: parsed.data.features.map((f) => sanitizeText(f)),
-      ctaText: sanitizeText(parsed.data.ctaText),
-      isPopular: Boolean(parsed.data.isPopular),
-      active: Boolean(parsed.data.active),
-    };
+    const newPlan = await ledger.runInTransaction((db) => {
+      const plan = {
+        id: `plan-${Date.now()}`,
+        name: sanitizeText(parsed.data.name),
+        targetAudience: sanitizeText(parsed.data.targetAudience),
+        price: sanitizeText(parsed.data.price),
+        dailyProfit: parsed.data.dailyProfit ? sanitizeText(parsed.data.dailyProfit) : undefined,
+        totalProfit: parsed.data.totalProfit ? sanitizeText(parsed.data.totalProfit) : undefined,
+        currency: sanitizeText(parsed.data.currency),
+        duration: sanitizeText(parsed.data.duration),
+        description: sanitizeText(parsed.data.description),
+        features: parsed.data.features.map((f) => sanitizeText(f)),
+        ctaText: sanitizeText(parsed.data.ctaText),
+        isPopular: Boolean(parsed.data.isPopular),
+        active: Boolean(parsed.data.active),
+      };
+      db.plans.push(plan);
+      return plan;
+    });
 
-    db.plans.push(newPlan);
-    saveDb(db);
     return res.status(201).json({ plan: newPlan });
   });
 
-  app.put('/api/admin/plans/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
-    const parsed = PlanSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        error: parsed.error.issues[0]?.message || 'Invalid plan configuration',
+  app.delete('/api/admin/plans/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      await ledger.runInTransaction((db) => {
+        const idx = db.plans.findIndex((p) => p.id === req.params.id);
+        if (idx === -1) throw new Error('Plan not found.');
+        db.plans.splice(idx, 1);
       });
+      return res.json({ success: true });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not delete plan';
+      return res.status(404).json({ error: msg });
     }
-
-    const db = loadDb();
-    const idx = db.plans.findIndex((p) => p.id === req.params.id);
-    if (idx === -1) {
-      return res.status(404).json({ error: 'Plan not found.' });
-    }
-
-    db.plans[idx] = {
-      ...db.plans[idx],
-      name: sanitizeText(parsed.data.name),
-      targetAudience: sanitizeText(parsed.data.targetAudience),
-      price: sanitizeText(parsed.data.price),
-      currency: sanitizeText(parsed.data.currency),
-      duration: sanitizeText(parsed.data.duration),
-      description: sanitizeText(parsed.data.description),
-      features: parsed.data.features.map((f) => sanitizeText(f)),
-      ctaText: sanitizeText(parsed.data.ctaText),
-      isPopular: Boolean(parsed.data.isPopular),
-      active: Boolean(parsed.data.active),
-    };
-
-    saveDb(db);
-    return res.json({ plan: db.plans[idx] });
   });
 
-  app.delete('/api/admin/plans/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
-    const db = loadDb();
-    const idx = db.plans.findIndex((p) => p.id === req.params.id);
-    if (idx === -1) {
-      return res.status(404).json({ error: 'Plan not found.' });
-    }
-    db.plans.splice(idx, 1);
-    saveDb(db);
-    return res.json({ success: true });
-  });
-
-  app.patch('/api/admin/inquiries/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
+  app.patch('/api/admin/inquiries/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     const parsed = InquiryUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -959,19 +854,22 @@ async function startServer() {
       });
     }
 
-    const db = loadDb();
-    const inquiry = db.inquiries.find((i) => i.id === req.params.id);
-    if (!inquiry) {
-      return res.status(404).json({ error: 'Support inquiry not found.' });
+    try {
+      const inquiry = await ledger.runInTransaction((db) => {
+        const item = db.inquiries.find((i) => i.id === req.params.id);
+        if (!item) throw new Error('Support inquiry not found.');
+        item.status = parsed.data.status;
+        item.adminReply = sanitizeText(parsed.data.adminReply);
+        return item;
+      });
+      return res.json({ inquiry });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Inquiry not found';
+      return res.status(404).json({ error: msg });
     }
-
-    inquiry.status = parsed.data.status;
-    inquiry.adminReply = sanitizeText(parsed.data.adminReply);
-    saveDb(db);
-    return res.json({ inquiry });
   });
 
-  app.put('/api/admin/settings', requireAdmin, (req: AuthenticatedRequest, res) => {
+  app.put('/api/admin/settings', requireAdmin, async (req: AuthenticatedRequest, res) => {
     const parsed = SettingsUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -979,58 +877,77 @@ async function startServer() {
       });
     }
 
-    const db = loadDb();
-    if (parsed.data.logoUrl !== undefined) {
-      db.settings.logoUrl = parsed.data.logoUrl ? parsed.data.logoUrl.trim() : null;
-    }
-    if (parsed.data.heroHeadline !== undefined) {
-      db.settings.heroHeadline = sanitizeText(parsed.data.heroHeadline);
-    }
-    if (parsed.data.heroSubheadline !== undefined) {
-      db.settings.heroSubheadline = sanitizeText(parsed.data.heroSubheadline);
-    }
-    if (parsed.data.announcementText !== undefined) {
-      db.settings.announcementText = sanitizeText(parsed.data.announcementText);
-    }
-
-    saveDb(db);
-    return res.json({ settings: db.settings });
-  });
-
-  app.patch('/api/admin/users/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
-    const db = loadDb();
-    const user = db.users.find((u) => u.id === req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-    if (typeof req.body.activePlanId === 'string' || req.body.activePlanId === null) {
-      user.activePlanId = req.body.activePlanId;
-    }
-    if (req.body.role === 'user' || req.body.role === 'admin') {
-      // Prevent removing own admin role
-      if (user.id !== req.user!.id) {
-        user.role = req.body.role;
+    const settings = await ledger.runInTransaction((db) => {
+      if (parsed.data.logoUrl !== undefined) {
+        db.settings.logoUrl = parsed.data.logoUrl ? parsed.data.logoUrl.trim() : null;
       }
-    }
-    saveDb(db);
-    return res.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        identifier: user.identifier,
-        role: user.role,
-        activePlanId: user.activePlanId,
-        createdAt: user.createdAt,
-      },
+      if (parsed.data.heroHeadline !== undefined) {
+        db.settings.heroHeadline = sanitizeText(parsed.data.heroHeadline);
+      }
+      if (parsed.data.heroSubheadline !== undefined) {
+        db.settings.heroSubheadline = sanitizeText(parsed.data.heroSubheadline);
+      }
+      if (parsed.data.announcementText !== undefined) {
+        db.settings.announcementText = sanitizeText(parsed.data.announcementText);
+      }
+      return db.settings;
     });
+
+    return res.json({ settings });
   });
 
-  // Catch-all for unknown API endpoints
+  app.patch('/api/admin/users/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const updatedUser = await ledger.runInTransaction((db) => {
+        const user = db.users.find((u) => u.id === req.params.id);
+        if (!user) throw new Error('User not found.');
+        const prev = `status=${user.status}; role=${user.role}`;
+
+        if (typeof req.body.activePlanId === 'string' || req.body.activePlanId === null) {
+          user.activePlanId = req.body.activePlanId;
+        }
+        if (req.body.status === 'ACTIVE' || req.body.status === 'SUSPENDED') {
+          if (user.id !== req.user!.id) {
+            user.status = req.body.status;
+          }
+        }
+        if (req.body.role === 'user' || req.body.role === 'admin') {
+          if (user.id !== req.user!.id) {
+            user.role = req.body.role;
+          }
+        }
+
+        db.auditLogs.push({
+          id: `AUD-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,
+          adminId: req.user!.id,
+          adminName: req.user!.name,
+          action: 'USER_ACCOUNT_UPDATED',
+          targetUserId: user.id,
+          targetUserName: user.name,
+          entityType: 'USER',
+          entityId: user.id,
+          amount: null,
+          previousState: prev,
+          newState: `status=${user.status}; role=${user.role}; plan=${user.activePlanId || 'none'}`,
+          ipAddress: req.ip || '127.0.0.1',
+          userAgent: String(req.headers['user-agent'] || 'admin-console'),
+          timestamp: new Date().toISOString(),
+        });
+
+        return formatSafeUser(user);
+      });
+
+      return res.json({ user: updatedUser });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'User update failed';
+      return res.status(404).json({ error: msg });
+    }
+  });
+
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'API endpoint not found.' });
   });
 
-  // Vite middleware for development or static serving for production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

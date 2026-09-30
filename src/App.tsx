@@ -250,6 +250,7 @@ export default function App() {
             plans={plans}
             selectedPlanId={selectedPlanId}
             onNavigate={navigate}
+            onLogout={handleLogout}
           />
         );
       case 'admin':
@@ -272,6 +273,7 @@ export default function App() {
               plans={plans}
               selectedPlanId={selectedPlanId}
               onNavigate={navigate}
+              onLogout={handleLogout}
             />
           );
         }
