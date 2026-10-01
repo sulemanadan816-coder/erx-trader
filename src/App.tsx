@@ -55,13 +55,13 @@ function resolveInitialPage(): PageRoute {
 }
 
 const STORAGE_TOKEN_KEY = 'rex_traders_auth_token';
-const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
+const AUTHORIZED_ADMIN_EMAILS = ['sulemanadan816@gmail.com', 'abubakararain104@gmail.com'];
 
 function isOwnerAdmin(account: UserAccount | null): boolean {
   return Boolean(
     account &&
       account.role === 'admin' &&
-      account.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+      AUTHORIZED_ADMIN_EMAILS.includes(account.identifier.toLowerCase())
   );
 }
 

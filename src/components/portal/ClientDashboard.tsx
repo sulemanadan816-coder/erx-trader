@@ -179,6 +179,10 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   useEffect(() => {
     fetchDashboardSummary();
+    const interval = setInterval(() => {
+      fetchDashboardSummary();
+    }, 6000);
+    return () => clearInterval(interval);
   }, [fetchDashboardSummary]);
 
   useEffect(() => {
@@ -630,14 +634,30 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
               <>
                 {/* 4 Primary Balance & Ledger Metrics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="bg-white border border-slate-200 rounded-xl p-5">
-                    <div className="text-xs text-slate-500">Available Balance</div>
-                    <div className="mt-1.5 font-mono tabular-nums text-2xl font-bold text-slate-900">
-                      Rs. {wallet.availableBalance.toLocaleString()}
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500">Available Balance (Withdrawable)</div>
+                      <div className="mt-1.5 font-mono tabular-nums text-2xl font-bold text-emerald-700">
+                        Rs. {wallet.availableBalance.toLocaleString()}
+                      </div>
+                      <div className="mt-1 text-[11px] text-emerald-700 font-medium">
+                        {wallet.availableBalance > 0
+                          ? 'Approved funds ready for withdrawal'
+                          : 'Credited immediately upon admin payment approval'}
+                      </div>
                     </div>
-                    <div className="mt-1 text-[11px] text-emerald-700 font-medium">
-                      Eligible for withdrawal or plan purchase
-                    </div>
+                    {wallet.availableBalance > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWdAmount(String(wallet.availableBalance));
+                          setActiveTab('withdraw');
+                        }}
+                        className="mt-3 w-full py-2 px-3 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg cursor-pointer transition-colors"
+                      >
+                        Withdraw Rs. {wallet.availableBalance.toLocaleString()} Now &rarr;
+                      </button>
+                    )}
                   </div>
 
                   <div className="bg-white border border-slate-200 rounded-xl p-5">

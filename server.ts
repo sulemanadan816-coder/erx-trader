@@ -7,7 +7,7 @@ import { z } from 'zod';
 import {
   LedgerEngine,
   type StoredUserRecord,
-  OWNER_ADMIN_EMAIL,
+  isAuthorizedAdminEmail,
   hashPassword,
   verifyPassword,
   signToken,
@@ -201,9 +201,9 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
   if (!user) {
     return res.status(401).json({ error: 'Authentication required. Please sign in.' });
   }
-  if (user.role !== 'admin' || user.identifier.toLowerCase() !== OWNER_ADMIN_EMAIL) {
+  if (user.role !== 'admin' || !isAuthorizedAdminEmail(user.identifier)) {
     return res.status(403).json({
-      error: 'Access denied. Only the verified owner can access the Administrator Console.',
+      error: 'Access denied. Only authorized administrators can access the Administrator Console.',
     });
   }
   req.user = user;
@@ -262,8 +262,8 @@ async function startServer() {
     try {
       const result = await ledger.runInTransaction((db) => {
         const normalizedIdentifier = sanitizeText(parsed.data.identifier).toLowerCase();
-        if (normalizedIdentifier === OWNER_ADMIN_EMAIL) {
-          throw new Error('This email address is reserved for the platform owner.');
+        if (isAuthorizedAdminEmail(normalizedIdentifier)) {
+          throw new Error('This email address is reserved for a platform administrator.');
         }
         const existing = db.users.find(
           (u) => u.identifier.toLowerCase() === normalizedIdentifier
@@ -942,12 +942,12 @@ async function startServer() {
           user.activePlanId = req.body.activePlanId;
         }
         if (req.body.status === 'ACTIVE' || req.body.status === 'SUSPENDED') {
-          if (user.id !== req.user!.id && user.identifier.toLowerCase() !== OWNER_ADMIN_EMAIL) {
+          if (user.id !== req.user!.id && !isAuthorizedAdminEmail(user.identifier)) {
             user.status = req.body.status;
           }
         }
-        // Strictly forbid promoting any other account to admin
-        user.role = user.identifier.toLowerCase() === OWNER_ADMIN_EMAIL ? 'admin' : 'user';
+        // Strictly forbid promoting any unauthorized account to admin
+        user.role = isAuthorizedAdminEmail(user.identifier) ? 'admin' : 'user';
 
         db.auditLogs.push({
           id: `AUD-${Date.now()}-${crypto.randomBytes(2).toString('hex')}`,

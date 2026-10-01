@@ -44,7 +44,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onPlansUpdated,
   onNavigate,
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('withdrawals');
+  const [activeTab, setActiveTab] = useState<AdminTab>('deposits');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -466,10 +466,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="text-xs text-slate-500 mb-1">
               <span>{settings.brandName}</span>
               <span aria-hidden="true"> · </span>
-              <span>Exclusive Owner Console (sulemanadan816@gmail.com)</span>
+              <span>Authorized Administrator Console</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-              Withdrawals, Deposits, Ledger &amp; Audit Management
+              Client Payment Approvals, Withdrawals, Ledger &amp; Audit Management
             </h1>
           </div>
 
@@ -541,8 +541,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-200/80 rounded-lg">
           {(
             [
-              { id: 'withdrawals', label: '1. Withdrawals Queue' },
-              { id: 'deposits', label: '2. Easypaisa Deposits' },
+              {
+                id: 'deposits',
+                label: `1. Payment Approvals (${deposits.filter((t) => t.status === 'Pending').length} Pending)`,
+              },
+              {
+                id: 'withdrawals',
+                label: `2. Withdrawals Queue (${
+                  withdrawals.filter((w) => w.status === 'PENDING' || w.status === 'PROCESSING')
+                    .length
+                } Active)`,
+              },
               { id: 'wallets', label: '3. Wallets & Ledger' },
               { id: 'methods', label: '4. Withdrawal Methods' },
               { id: 'audit', label: '5. Audit Log' },
@@ -835,17 +844,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* ==================== TAB 2: EASYPAISA DEPOSITS ==================== */}
+        {/* ==================== TAB 2: EASYPAISA DEPOSITS (APPROVE / DISAPPROVE PAYMENTS) ==================== */}
         {activeTab === 'deposits' && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Easypaisa Deposit &amp; Plan Payment Queue ({settings.easypaisaNumber})
+                  Client Payment Verification — Approve or Disapprove ({settings.easypaisaNumber})
                 </h2>
                 <p className="text-xs text-slate-600">
-                  Approving a deposit posts an immutable CREDIT ledger entry to the customer&apos;s
-                  Wallet and activates their selected plan if applicable.
+                  When you click <strong>Approve Payment</strong>, the payment amount is immediately
+                  credited to the client&apos;s <strong>Available Balance</strong> on their
+                  dashboard and becomes eligible for withdrawal. Clicking{' '}
+                  <strong>Disapprove Payment</strong> rejects or reverses the payment.
                 </p>
               </div>
               <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg self-start">
@@ -860,7 +871,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         : 'text-slate-600'
                     }`}
                   >
-                    {status}
+                    {status === 'Rejected' ? 'Disapproved' : status}
                   </button>
                 ))}
               </div>
@@ -868,92 +879,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {filteredDeposits.length === 0 ? (
               <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
-                No deposit submissions match filter ({depFilter}).
+                No client payment submissions match filter ({depFilter}).
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-xs text-slate-500">
-                      <th className="py-2.5 pr-4 font-semibold">Client</th>
+                      <th className="py-2.5 pr-4 font-semibold">Client &amp; Wallet Balance</th>
                       <th className="py-2.5 px-4 font-semibold">Purpose / Plan</th>
                       <th className="py-2.5 px-4 font-semibold">Easypaisa TID &amp; Sender</th>
-                      <th className="py-2.5 px-4 font-semibold text-right">Amount</th>
+                      <th className="py-2.5 px-4 font-semibold text-right">Payment Amount</th>
                       <th className="py-2.5 px-4 font-semibold">Status</th>
-                      <th className="py-2.5 pl-4 font-semibold">Verification Action</th>
+                      <th className="py-2.5 pl-4 font-semibold">Approve / Disapprove Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
-                    {filteredDeposits.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-slate-50/70">
-                        <td className="py-3.5 pr-4">
-                          <div className="font-semibold text-slate-900">{tx.userName}</div>
-                          <div className="font-mono text-[11px] text-slate-500">
-                            {tx.userIdentifier}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-slate-800">{tx.planName}</td>
-                        <td className="py-3.5 px-4 font-mono tabular-nums">
-                          <div className="font-bold text-slate-900">TID: {tx.transactionId}</div>
-                          <div className="text-[11px] text-slate-500">From: {tx.senderNumber}</div>
-                          {tx.paymentProofNote && (
-                            <div className="text-[11px] text-slate-600">
-                              Note: {tx.paymentProofNote}
+                    {filteredDeposits.map((tx) => {
+                      const clientWallet = wallets.find((w) => w.userId === tx.userId);
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/70">
+                          <td className="py-3.5 pr-4">
+                            <div className="font-semibold text-slate-900">{tx.userName}</div>
+                            <div className="font-mono text-[11px] text-slate-500">
+                              {tx.userIdentifier}
                             </div>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
-                          {tx.amount}
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`font-semibold ${
-                              tx.status === 'Approved'
-                                ? 'text-emerald-700'
-                                : tx.status === 'Rejected'
-                                ? 'text-red-700'
-                                : 'text-amber-700'
-                            }`}
-                          >
-                            {tx.status}
-                          </span>
-                        </td>
-                        <td className="py-3.5 pl-4 min-w-[250px]">
-                          <div className="flex flex-col gap-2">
-                            <input
-                              type="text"
-                              value={depNotesDraft[tx.id] ?? tx.adminNotes}
-                              onChange={(e) =>
-                                setDepNotesDraft((prev) => ({
-                                  ...prev,
-                                  [tx.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="Add verification note..."
-                              className="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded text-slate-900"
-                            />
-                            {tx.status !== 'Approved' && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleReviewDeposit(tx.id, 'Approved')}
-                                  className="px-2.5 py-1 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded cursor-pointer"
-                                >
-                                  Approve &amp; Credit Wallet
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleReviewDeposit(tx.id, 'Rejected')}
-                                  className="px-2.5 py-1 text-xs font-semibold text-white bg-red-700 hover:bg-red-800 rounded cursor-pointer"
-                                >
-                                  Reject
-                                </button>
+                            <div className="mt-1 font-mono tabular-nums text-[11px] font-semibold text-emerald-700">
+                              Dashboard Balance: Rs.{' '}
+                              {(clientWallet?.availableBalance || 0).toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-800">{tx.planName}</td>
+                          <td className="py-3.5 px-4 font-mono tabular-nums">
+                            <div className="font-bold text-slate-900">TID: {tx.transactionId}</div>
+                            <div className="text-[11px] text-slate-500">
+                              From: {tx.senderNumber}
+                            </div>
+                            {tx.paymentProofNote && (
+                              <div className="text-[11px] text-slate-600">
+                                Note: {tx.paymentProofNote}
                               </div>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
+                            {tx.amount}
+                          </td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`font-semibold ${
+                                tx.status === 'Approved'
+                                  ? 'text-emerald-700'
+                                  : tx.status === 'Rejected'
+                                  ? 'text-red-700'
+                                  : 'text-amber-700'
+                              }`}
+                            >
+                              {tx.status === 'Rejected' ? 'Disapproved (Rejected)' : tx.status}
+                            </span>
+                          </td>
+                          <td className="py-3.5 pl-4 min-w-[270px]">
+                            <div className="flex flex-col gap-2">
+                              <input
+                                type="text"
+                                value={depNotesDraft[tx.id] ?? tx.adminNotes}
+                                onChange={(e) =>
+                                  setDepNotesDraft((prev) => ({
+                                    ...prev,
+                                    [tx.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder="Add verification note..."
+                                className="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded text-slate-900"
+                              />
+                              <div className="flex flex-wrap items-center gap-2">
+                                {tx.status !== 'Approved' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewDeposit(tx.id, 'Approved')}
+                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded cursor-pointer"
+                                  >
+                                    Approve Payment (+Credit Dashboard)
+                                  </button>
+                                )}
+                                {tx.status !== 'Rejected' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewDeposit(tx.id, 'Rejected')}
+                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-red-700 hover:bg-red-800 rounded cursor-pointer"
+                                  >
+                                    Disapprove Payment
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1701,8 +1723,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </h2>
                 <p className="text-xs text-slate-600 mt-1">
                   Administrator Console access is strictly locked to{' '}
-                  <strong className="font-mono text-slate-900">sulemanadan816@gmail.com</strong>. No
-                  other account can access or be promoted to administrator.
+                  <strong className="font-mono text-slate-900">sulemanadan816@gmail.com</strong> and{' '}
+                  <strong className="font-mono text-slate-900">abubakararain104@gmail.com</strong>.
+                  No other account can access or be promoted to administrator.
                 </p>
               </div>
 

@@ -20,10 +20,12 @@ const NAV_ITEMS: { label: string; route: PageRoute }[] = [
   { label: 'Contact', route: 'contact' },
 ];
 
-const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
+const AUTHORIZED_ADMIN_EMAILS = ['sulemanadan816@gmail.com', 'abubakararain104@gmail.com'];
 function isExclusiveOwnerAdmin(user: UserAccount | null): boolean {
   return Boolean(
-    user && user.role === 'admin' && user.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+    user &&
+      user.role === 'admin' &&
+      AUTHORIZED_ADMIN_EMAILS.includes(user.identifier.toLowerCase())
   );
 }
 

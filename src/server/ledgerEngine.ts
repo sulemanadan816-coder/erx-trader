@@ -24,6 +24,15 @@ import type {
 const TOKEN_SECRET = process.env.SESSION_SECRET || 'rex-traders-hmac-secret-key-2026-prod';
 
 export const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
+export const SECONDARY_ADMIN_EMAIL = 'abubakararain104@gmail.com';
+export const AUTHORIZED_ADMIN_EMAILS = [
+  OWNER_ADMIN_EMAIL,
+  SECONDARY_ADMIN_EMAIL,
+];
+
+export function isAuthorizedAdminEmail(identifier: string): boolean {
+  return AUTHORIZED_ADMIN_EMAILS.includes(identifier.trim().toLowerCase());
+}
 
 export function hashPassword(password: string, salt?: string): string {
   const useSalt = salt || crypto.randomBytes(16).toString('hex');
@@ -35,6 +44,10 @@ export function hashPassword(password: string, salt?: string): string {
 const DEFAULT_OWNER_ADMIN_HASH = hashPassword(
   'Suleman@Rex2026!',
   '999bbb5c43dca034a75792ab5c0d7b9a'
+);
+const DEFAULT_ABUBAKAR_ADMIN_HASH = hashPassword(
+  'Arain@786',
+  '777aaa4b32cb9023b64681ba4b0c6a8f'
 );
 const DEFAULT_CLIENT_PASSWORD_HASH =
   '2b2fb7c338ca016f82fcb3040ca12a22:7a297f0499c88226a1f736aff551da75e9e4b80490f276e3cd8a76865841e38a8457c4da85b8a23e40723af6ed862a8e81dd83108dba75e3064d7ffe33c5c07f';
@@ -427,9 +440,20 @@ export function createInitialDb(): DatabaseSchema {
     users: [
       {
         id: 'usr-admin-owner',
-        name: 'Suleman Adan (REX TRADERS Owner)',
+        name: 'Suleman Adan (REX TRADERS Admin)',
         identifier: OWNER_ADMIN_EMAIL,
         passwordHash: DEFAULT_OWNER_ADMIN_HASH,
+        role: 'admin',
+        status: 'ACTIVE',
+        activePlanId: null,
+        savedPayoutAccounts: [],
+        createdAt: now,
+      },
+      {
+        id: 'usr-admin-abubakar',
+        name: 'Abubakar Arain (REX TRADERS Admin)',
+        identifier: SECONDARY_ADMIN_EMAIL,
+        passwordHash: DEFAULT_ABUBAKAR_ADMIN_HASH,
         role: 'admin',
         status: 'ACTIVE',
         activePlanId: null,
@@ -452,6 +476,20 @@ export function createInitialDb(): DatabaseSchema {
       {
         id: 'wal-usr-admin-owner',
         userId: 'usr-admin-owner',
+        availableBalance: 0,
+        pendingBalance: 0,
+        reservedWithdrawalBalance: 0,
+        totalBalance: 0,
+        totalDeposited: 0,
+        totalWithdrawn: 0,
+        pendingWithdrawalsAmount: 0,
+        completedWithdrawalsAmount: 0,
+        currency: 'PKR',
+        updatedAt: now,
+      },
+      {
+        id: 'wal-usr-admin-abubakar',
+        userId: 'usr-admin-abubakar',
         availableBalance: 0,
         pendingBalance: 0,
         reservedWithdrawalBalance: 0,
@@ -554,25 +592,31 @@ export class LedgerEngine {
 
       const validPlanIds = new Set(resolvedPlans.map((p) => p.id));
 
-      // Purge any legacy admin@rextraders.com and strictly enforce that ONLY OWNER_ADMIN_EMAIL can have role='admin'
+      // Purge any legacy admin@rextraders.com and strictly enforce that ONLY AUTHORIZED_ADMIN_EMAILS can have role='admin'
       const rawUsers = (parsed.users || fallback.users).filter(
         (u) => u.identifier.toLowerCase() !== 'admin@rextraders.com'
       );
 
       const normalizedUsers: StoredUserRecord[] = rawUsers.map((u) => {
-        const isOwner = u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL;
+        const isAuthorizedAdmin = isAuthorizedAdminEmail(u.identifier);
         return {
           ...u,
-          role: isOwner ? 'admin' : 'user',
-          status: isOwner ? 'ACTIVE' : u.status || 'ACTIVE',
+          role: isAuthorizedAdmin ? 'admin' : 'user',
+          status: isAuthorizedAdmin ? 'ACTIVE' : u.status || 'ACTIVE',
           activePlanId:
             u.activePlanId && validPlanIds.has(u.activePlanId) ? u.activePlanId : null,
           savedPayoutAccounts: Array.isArray(u.savedPayoutAccounts) ? u.savedPayoutAccounts : [],
         };
       });
 
-      if (!normalizedUsers.some((u) => u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL)) {
-        normalizedUsers.unshift(fallback.users[0]);
+      for (const seededAdmin of fallback.users.filter((u) => u.role === 'admin')) {
+        if (
+          !normalizedUsers.some(
+            (u) => u.identifier.toLowerCase() === seededAdmin.identifier.toLowerCase()
+          )
+        ) {
+          normalizedUsers.unshift(seededAdmin);
+        }
       }
 
       const db: DatabaseSchema = {
@@ -946,7 +990,7 @@ export class LedgerEngine {
     });
   }
 
-  // --- 2. Admin Deposit Review (Approve / Reject) ---
+  // --- 2. Admin Deposit Review (Approve / Disapprove) ---
   public async reviewDeposit(params: {
     adminId: string;
     depositId: string;
@@ -960,7 +1004,7 @@ export class LedgerEngine {
         (u) =>
           u.id === params.adminId &&
           u.role === 'admin' &&
-          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+          isAuthorizedAdminEmail(u.identifier)
       );
       if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
 
@@ -971,12 +1015,6 @@ export class LedgerEngine {
       if (prevStatus === params.status) {
         deposit.adminNotes = params.adminNotes?.trim() || deposit.adminNotes;
         return deposit;
-      }
-
-      if (prevStatus === 'Approved' && params.status !== 'Approved') {
-        throw new Error(
-          'An already approved deposit has posted immutable ledger entries. Use an Admin Balance Adjustment instead.'
-        );
       }
 
       const user = db.users.find((u) => u.id === deposit.userId);
@@ -990,8 +1028,8 @@ export class LedgerEngine {
       deposit.adminNotes =
         params.adminNotes?.trim() ||
         (params.status === 'Approved'
-          ? 'Easypaisa transfer verified and approved by administrator.'
-          : 'Easypaisa Transaction ID could not be verified.');
+          ? 'Payment approved by administrator. Funds credited to Available Balance.'
+          : 'Payment disapproved by administrator.');
       deposit.reviewedAt = now;
       deposit.reviewedBy = admin.name;
 
@@ -1016,7 +1054,7 @@ export class LedgerEngine {
           balanceAfter: balanceAfterDeposit,
           pendingBefore,
           pendingAfter: Math.max(0, pendingBefore - amount),
-          description: `Approved Easypaisa deposit (TID: ${deposit.transactionId}) verified by ${admin.name}`,
+          description: `Approved Easypaisa payment (TID: ${deposit.transactionId}) verified by ${admin.name}`,
         });
 
         if (unifiedTx) {
@@ -1024,8 +1062,6 @@ export class LedgerEngine {
           unifiedTx.updatedAt = now;
         }
 
-        // 2. If deposit is strictly for wallet balance, keep funds in availableBalance.
-        // If deposit is for a specific service plan, activate the plan and record the purchase OR if user deposited for a plan, let's activate the plan and credit/debit cleanly.
         if (!deposit.creditToWalletOnly && deposit.planId !== 'wallet-deposit') {
           user.activePlanId = deposit.planId;
           if (linkedOrder) {
@@ -1035,20 +1071,45 @@ export class LedgerEngine {
           this.appendNotification(
             db,
             user.id,
-            'Deposit Verified & Plan Activated',
-            `Your Easypaisa transfer (TID: ${deposit.transactionId}) of Rs. ${amount.toLocaleString()} has been verified. Rs. ${amount.toLocaleString()} was credited to your wallet and your plan (${deposit.planName}) is now ACTIVE.`,
+            'Payment Approved — Balance Credited & Plan Active',
+            `Your payment (TID: ${deposit.transactionId}) of Rs. ${amount.toLocaleString()} has been approved by the admin! Rs. ${amount.toLocaleString()} is now in your Available Balance on your dashboard and eligible for withdrawal.`,
             'SUCCESS'
           );
         } else {
           this.appendNotification(
             db,
             user.id,
-            'Wallet Deposit Approved',
-            `Your Easypaisa deposit (TID: ${deposit.transactionId}) of Rs. ${amount.toLocaleString()} has been verified and added to your Available Balance.`,
+            'Payment Approved — Available for Withdrawal',
+            `Your payment (TID: ${deposit.transactionId}) of Rs. ${amount.toLocaleString()} has been approved by the admin and added to your Available Balance. You can withdraw it anytime from your dashboard.`,
             'SUCCESS'
           );
         }
       } else if (params.status === 'Rejected') {
+        // If previously Approved, reverse the credited balance cleanly
+        if (prevStatus === 'Approved') {
+          const balanceBefore = wallet.availableBalance;
+          const deductAmount = Math.min(balanceBefore, amount);
+          const balanceAfter = balanceBefore - deductAmount;
+          wallet.availableBalance = balanceAfter;
+
+          this.appendLedgerEntry(db, {
+            userId: user.id,
+            transactionId: unifiedTx ? unifiedTx.id : deposit.id,
+            type: 'ADMIN_ADJUSTMENT',
+            direction: 'DEBIT',
+            amount: deductAmount,
+            balanceBefore,
+            balanceAfter,
+            pendingBefore: wallet.pendingBalance,
+            pendingAfter: wallet.pendingBalance,
+            description: `Disapproved previously approved payment (TID: ${deposit.transactionId}) by ${admin.name}`,
+          });
+
+          if (user.activePlanId === deposit.planId) {
+            user.activePlanId = null;
+          }
+        }
+
         if (unifiedTx) {
           unifiedTx.status = 'REJECTED';
           unifiedTx.updatedAt = now;
@@ -1059,8 +1120,8 @@ export class LedgerEngine {
         this.appendNotification(
           db,
           user.id,
-          'Easypaisa Deposit Rejected',
-          `Your submitted payment reference (TID: ${deposit.transactionId}) was marked REJECTED. Reason: ${deposit.adminNotes}`,
+          'Payment Disapproved by Administrator',
+          `Your submitted payment reference (TID: ${deposit.transactionId}) for Rs. ${amount.toLocaleString()} was disapproved. Reason: ${deposit.adminNotes}`,
           'ERROR'
         );
       }
@@ -1474,7 +1535,7 @@ export class LedgerEngine {
         (u) =>
           u.id === params.adminId &&
           u.role === 'admin' &&
-          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+          isAuthorizedAdminEmail(u.identifier)
       );
       if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
 
@@ -1710,7 +1771,7 @@ export class LedgerEngine {
         (u) =>
           u.id === params.adminId &&
           u.role === 'admin' &&
-          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+          isAuthorizedAdminEmail(u.identifier)
       );
       if (!admin) throw new Error('Unauthorized: Administrator privileges required.');
 
@@ -1809,7 +1870,7 @@ export class LedgerEngine {
         (u) =>
           u.id === params.adminId &&
           u.role === 'admin' &&
-          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+          isAuthorizedAdminEmail(u.identifier)
       );
       if (!admin) throw new Error('Unauthorized: Exclusive Owner Administrator privileges required.');
 
@@ -1875,10 +1936,10 @@ export class LedgerEngine {
         (u) =>
           u.id === params.adminId &&
           u.role === 'admin' &&
-          u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL
+          isAuthorizedAdminEmail(u.identifier)
       );
       if (!admin) {
-        throw new Error('Unauthorized: Only the owner administrator can change the admin password.');
+        throw new Error('Unauthorized: Only an authorized administrator can change their password.');
       }
       if (!verifyPassword(params.currentPassword, admin.passwordHash)) {
         throw new Error('Current password is incorrect.');

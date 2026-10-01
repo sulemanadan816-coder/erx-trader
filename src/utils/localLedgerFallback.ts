@@ -45,6 +45,15 @@ interface LocalDatabaseSchema {
 
 const DB_STORAGE_KEY = 'rex_traders_authoritative_ledger_v2';
 export const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
+export const SECONDARY_ADMIN_EMAIL = 'abubakararain104@gmail.com';
+export const AUTHORIZED_ADMIN_EMAILS = [
+  OWNER_ADMIN_EMAIL,
+  SECONDARY_ADMIN_EMAIL,
+];
+
+export function isAuthorizedAdminEmail(identifier: string): boolean {
+  return AUTHORIZED_ADMIN_EMAILS.includes(identifier.trim().toLowerCase());
+}
 
 const DEFAULT_WITHDRAWAL_METHODS: WithdrawalMethodConfig[] = [
   {
@@ -103,9 +112,20 @@ function createInitialLocalDb(): LocalDatabaseSchema {
     users: [
       {
         id: 'usr-admin-owner',
-        name: 'Suleman Adan (REX TRADERS Owner)',
+        name: 'Suleman Adan (REX TRADERS Admin)',
         identifier: OWNER_ADMIN_EMAIL,
         passwordPlain: 'Suleman@Rex2026!',
+        role: 'admin',
+        status: 'ACTIVE',
+        activePlanId: null,
+        savedPayoutAccounts: [],
+        createdAt: now,
+      },
+      {
+        id: 'usr-admin-abubakar',
+        name: 'Abubakar Arain (REX TRADERS Admin)',
+        identifier: SECONDARY_ADMIN_EMAIL,
+        passwordPlain: 'Arain@786',
         role: 'admin',
         status: 'ACTIVE',
         activePlanId: null,
@@ -137,6 +157,20 @@ function createInitialLocalDb(): LocalDatabaseSchema {
       {
         id: 'wal-usr-admin-owner',
         userId: 'usr-admin-owner',
+        availableBalance: 0,
+        pendingBalance: 0,
+        reservedWithdrawalBalance: 0,
+        totalBalance: 0,
+        totalDeposited: 0,
+        totalWithdrawn: 0,
+        pendingWithdrawalsAmount: 0,
+        completedWithdrawalsAmount: 0,
+        currency: 'PKR',
+        updatedAt: now,
+      },
+      {
+        id: 'wal-usr-admin-abubakar',
+        userId: 'usr-admin-abubakar',
         availableBalance: 0,
         pendingBalance: 0,
         reservedWithdrawalBalance: 0,
@@ -207,10 +241,16 @@ function loadDb(): LocalDatabaseSchema {
       .filter((u) => u.identifier.toLowerCase() !== 'admin@rextraders.com')
       .map((u) => ({
         ...u,
-        role: u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL ? 'admin' : 'user',
+        role: isAuthorizedAdminEmail(u.identifier) ? 'admin' : 'user',
       }));
-    if (!parsed.users.some((u) => u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL)) {
-      parsed.users.unshift(init.users[0]);
+    for (const seededAdmin of init.users.filter((u) => u.role === 'admin')) {
+      if (
+        !parsed.users.some(
+          (u) => u.identifier.toLowerCase() === seededAdmin.identifier.toLowerCase()
+        )
+      ) {
+        parsed.users.unshift(seededAdmin);
+      }
     }
     return parsed;
   } catch {
@@ -371,8 +411,8 @@ export async function handleLocalLedgerFallback<T = any>(
     if (identifier.length < 4) return fail('Valid email or mobile number is required.');
     if (password.length < 6) return fail('Password must be at least 6 characters.');
 
-    if (identifier === OWNER_ADMIN_EMAIL) {
-      return fail('This email address is reserved for the platform owner.', 403);
+    if (isAuthorizedAdminEmail(identifier)) {
+      return fail('This email address is reserved for a platform administrator.', 403);
     }
     if (db.users.some((u) => u.identifier.toLowerCase() === identifier)) {
       return fail('An account with this email or phone number already exists.', 409);
@@ -789,9 +829,9 @@ export async function handleLocalLedgerFallback<T = any>(
     return ok({ account: acc }, 201);
   }
 
-  // Admin routes: Strictly restricted to OWNER_ADMIN_EMAIL
-  if (user.role !== 'admin' || user.identifier.toLowerCase() !== OWNER_ADMIN_EMAIL) {
-    return fail('Access denied. Only the verified owner can access the Administrator Console.', 403);
+  // Admin routes: Strictly restricted to AUTHORIZED_ADMIN_EMAILS
+  if (user.role !== 'admin' || !isAuthorizedAdminEmail(user.identifier)) {
+    return fail('Access denied. Only authorized administrators can access the Administrator Console.', 403);
   }
 
   if (endpoint === '/api/admin/overview' && method === 'GET') {
@@ -859,6 +899,30 @@ export async function handleLocalLedgerFallback<T = any>(
         createdAt: now,
       });
     } else if (nextStatus === 'Rejected') {
+      if (prevStatus === 'Approved') {
+        const balanceBefore = wallet.availableBalance;
+        const deductAmount = Math.min(balanceBefore, amount);
+        const balanceAfter = balanceBefore - deductAmount;
+        wallet.availableBalance = balanceAfter;
+        if (targetUser.activePlanId === dep.planId) {
+          targetUser.activePlanId = null;
+        }
+        db.ledgerEntries.push({
+          id: `LEDG-${Date.now()}`,
+          userId: targetUser.id,
+          transactionId: unifiedTx ? unifiedTx.id : dep.id,
+          type: 'ADMIN_ADJUSTMENT',
+          direction: 'DEBIT',
+          amount: deductAmount,
+          balanceBefore,
+          balanceAfter,
+          pendingBefore: wallet.pendingBalance,
+          pendingAfter: wallet.pendingBalance,
+          status: 'POSTED',
+          description: `Disapproved previously approved payment (TID: ${dep.transactionId})`,
+          createdAt: now,
+        });
+      }
       if (unifiedTx) unifiedTx.status = 'REJECTED';
       if (linkedOrder) linkedOrder.status = 'CANCELLED';
     }

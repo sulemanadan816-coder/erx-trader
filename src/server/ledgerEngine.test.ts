@@ -5,6 +5,7 @@ import os from 'os';
 import {
   LedgerEngine,
   OWNER_ADMIN_EMAIL,
+  SECONDARY_ADMIN_EMAIL,
   verifyPassword,
   signToken,
   verifyToken,
@@ -17,17 +18,20 @@ async function runAllTests() {
 
   console.log('Running REX TRADERS Transactional Ledger & Withdrawal Test Suite...\n');
 
-  // 1. Test Login & Authentication Token Signing/Verification (Exclusive Owner Admin)
+  // 1. Test Login & Authentication Token Signing/Verification (Both Exclusive Admins)
   {
     const db = engine.readDbSync();
     const admin = db.users.find((u) => u.identifier === OWNER_ADMIN_EMAIL)!;
+    const secondAdmin = db.users.find((u) => u.identifier === SECONDARY_ADMIN_EMAIL)!;
     const client = db.users.find((u) => u.identifier === 'client@rextraders.com')!;
     const legacyAdmin = db.users.find((u) => u.identifier === 'admin@rextraders.com');
 
-    assert.ok(admin, 'Seeded exclusive owner admin user should exist');
+    assert.ok(admin, 'Seeded primary owner admin user should exist');
+    assert.ok(secondAdmin, 'Seeded secondary admin (abubakararain104@gmail.com) should exist');
     assert.strictEqual(legacyAdmin, undefined, 'Legacy admin@rextraders.com must not exist');
     assert.ok(client, 'Seeded client user should exist');
     assert.strictEqual(verifyPassword('Suleman@Rex2026!', admin.passwordHash), true);
+    assert.strictEqual(verifyPassword('Arain@786', secondAdmin.passwordHash), true);
     assert.strictEqual(verifyPassword('WrongPassword', admin.passwordHash), false);
 
     const token = signToken({
