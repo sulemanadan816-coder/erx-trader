@@ -210,7 +210,7 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
   next();
 }
 
-function formatSafeUser(u: StoredUserRecord) {
+function formatSafeUser(u: StoredUserRecord, totalInvested?: number) {
   return {
     id: u.id,
     name: u.name,
@@ -220,6 +220,10 @@ function formatSafeUser(u: StoredUserRecord) {
     activePlanId: u.activePlanId,
     savedPayoutAccounts: u.savedPayoutAccounts || [],
     createdAt: u.createdAt,
+    lastLoginAt: u.lastLoginAt || null,
+    lastLoginIp: u.lastLoginIp || null,
+    loginCount: u.loginCount || 0,
+    totalInvested: typeof totalInvested === 'number' ? totalInvested : (u.totalInvested || 0),
   };
 }
 
@@ -283,6 +287,10 @@ async function startServer() {
           activePlanId: null,
           savedPayoutAccounts: [],
           createdAt: now,
+          lastLoginAt: now,
+          lastLoginIp: String(req.ip || req.socket.remoteAddress || '127.0.0.1'),
+          loginCount: 1,
+          totalInvested: 0,
         };
 
         db.users.push(newUser);
@@ -301,6 +309,18 @@ async function startServer() {
         return newUser;
       });
 
+      const ipAddress = req.ip || req.socket.remoteAddress || '127.0.0.1';
+      const userAgent = String(req.headers['user-agent'] || 'Web Registration');
+      try {
+        await ledger.recordLogin({
+          userId: result.id,
+          ipAddress: String(ipAddress),
+          userAgent,
+        });
+      } catch {
+        // non-fatal
+      }
+
       const token = signToken({
         userId: result.id,
         role: result.role,
@@ -309,7 +329,7 @@ async function startServer() {
 
       return res.status(201).json({
         token,
-        user: formatSafeUser(result),
+        user: formatSafeUser(result, 0),
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Registration failed';
@@ -317,7 +337,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/auth/login', rateLimit(20, 60_000), (req, res) => {
+  app.post('/api/auth/login', rateLimit(20, 60_000), async (req, res) => {
     const parsed = LoginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -337,15 +357,32 @@ async function startServer() {
       });
     }
 
+    const ipAddress = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const userAgent = String(req.headers['user-agent'] || 'Web Browser');
+
+    try {
+      await ledger.recordLogin({
+        userId: user.id,
+        ipAddress: String(ipAddress),
+        userAgent,
+      });
+    } catch {
+      // non-fatal
+    }
+
     const token = signToken({
       userId: user.id,
       role: user.role,
       exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
 
+    const refreshedDb = ledger.readDbSync();
+    const refreshedUser = refreshedDb.users.find((u) => u.id === user.id) || user;
+    const totalInvested = ledger.calculateUserInvested(refreshedDb, refreshedUser.id);
+
     return res.json({
       token,
-      user: formatSafeUser(user),
+      user: formatSafeUser(refreshedUser, totalInvested),
     });
   });
 
@@ -645,13 +682,17 @@ async function startServer() {
       ledger.recalculateWalletDerivedMetrics(db, u.id);
     }
 
-    const safeUsers = db.users.map(formatSafeUser);
+    const safeUsers = db.users.map((u) => {
+      const invested = ledger.calculateUserInvested(db, u.id);
+      return formatSafeUser(u, invested);
+    });
 
     res.json({
       settings: db.settings,
       users: safeUsers,
       wallets: db.wallets,
       plans: db.plans,
+      loginLogs: db.loginLogs || [],
       transactions: [...db.transactions].sort(
         (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
       ),

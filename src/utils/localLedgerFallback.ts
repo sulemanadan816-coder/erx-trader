@@ -5,6 +5,7 @@ import type {
   DepositStatus,
   InquiryStatus,
   LedgerEntry,
+  LoginLogEntry,
   PaymentTransaction,
   SavedPayoutAccount,
   ServiceOrder,
@@ -38,6 +39,7 @@ interface LocalDatabaseSchema {
   withdrawals: WithdrawalRequest[];
   notifications: UserNotification[];
   auditLogs: AuditLogEntry[];
+  loginLogs: LoginLogEntry[];
   inquiries: SupportInquiry[];
   plans: ServicePlan[];
   sessions: Record<string, string>; // token -> userId
@@ -151,6 +153,10 @@ function createInitialLocalDb(): LocalDatabaseSchema {
           },
         ],
         createdAt: now,
+        lastLoginAt: now,
+        lastLoginIp: '182.180.142.10',
+        loginCount: 3,
+        totalInvested: 0,
       },
     ],
     wallets: [
@@ -216,6 +222,20 @@ function createInitialLocalDb(): LocalDatabaseSchema {
       },
     ],
     auditLogs: [],
+    loginLogs: [
+      {
+        id: 'LOG-INIT-1',
+        userId: 'usr-client-1',
+        userName: 'Client Account',
+        userIdentifier: 'client@rextraders.com',
+        role: 'user',
+        timestamp: now,
+        ipAddress: '182.180.142.10',
+        userAgent: 'Chrome 122.0.0 (Windows NT 10.0)',
+        totalInvested: 0,
+        activePlanName: null,
+      },
+    ],
     inquiries: [],
     plans: JSON.parse(JSON.stringify(DEFAULT_PLANS)),
     sessions: {},
@@ -252,6 +272,10 @@ function loadDb(): LocalDatabaseSchema {
         parsed.users.unshift(seededAdmin);
       }
     }
+    parsed.loginLogs =
+      Array.isArray(parsed.loginLogs) && parsed.loginLogs.length > 0
+        ? parsed.loginLogs
+        : init.loginLogs;
     return parsed;
   } catch {
     return createInitialLocalDb();
@@ -276,7 +300,22 @@ function formatSafeUser(u: LocalUserRecord): UserAccount {
     activePlanId: u.activePlanId || null,
     savedPayoutAccounts: u.savedPayoutAccounts || [],
     createdAt: u.createdAt,
+    lastLoginAt: u.lastLoginAt || null,
+    lastLoginIp: u.lastLoginIp || null,
+    loginCount: typeof u.loginCount === 'number' ? u.loginCount : 0,
+    totalInvested: typeof u.totalInvested === 'number' ? u.totalInvested : 0,
   };
+}
+
+function calculateLocalUserInvested(db: LocalDatabaseSchema, userId: string): number {
+  const wallet = recalculateWallet(db, userId);
+  const approvedDeposits = db.transactions
+    .filter((t) => t.userId === userId && t.status === 'Approved')
+    .reduce((sum, t) => sum + (t.numericAmount || parseNumericPkr(t.amount)), 0);
+  const activeOrders = db.orders
+    .filter((o) => o.userId === userId && (o.status === 'ACTIVE' || o.status === 'COMPLETED'))
+    .reduce((sum, o) => sum + o.amount, 0);
+  return Math.max(wallet.totalDeposited, approvedDeposits, activeOrders);
 }
 
 function recalculateWallet(db: LocalDatabaseSchema, userId: string): WalletAccount {
@@ -398,6 +437,30 @@ export async function handleLocalLedgerFallback<T = any>(
       .replace(/=+$/, '');
     const token = `${tokenPayload}.local`;
     db.sessions[token] = user.id;
+
+    const invested = calculateLocalUserInvested(db, user.id);
+    user.lastLoginAt = now;
+    user.lastLoginIp = '127.0.0.1';
+    user.loginCount = (user.loginCount || 0) + 1;
+    user.totalInvested = invested;
+
+    const activePlan = db.plans.find((p) => p.id === user.activePlanId);
+    if (!Array.isArray(db.loginLogs)) db.loginLogs = [];
+    db.loginLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      userId: user.id,
+      userName: user.name,
+      userIdentifier: user.identifier,
+      role: user.role,
+      timestamp: now,
+      ipAddress: '127.0.0.1',
+      userAgent: 'Web Browser',
+      totalInvested: invested,
+      activePlanName: activePlan ? activePlan.name : null,
+    });
+    if (db.loginLogs.length > 200) db.loginLogs.length = 200;
+    saveDb(db);
+
     recalculateWallet(db, user.id);
     return ok({ token, user: formatSafeUser(user) });
   }
@@ -428,6 +491,10 @@ export async function handleLocalLedgerFallback<T = any>(
       activePlanId: null,
       savedPayoutAccounts: [],
       createdAt: now,
+      lastLoginAt: now,
+      lastLoginIp: '127.0.0.1',
+      loginCount: 1,
+      totalInvested: 0,
     };
     db.users.push(newUser);
     recalculateWallet(db, newUser.id);
@@ -441,6 +508,22 @@ export async function handleLocalLedgerFallback<T = any>(
       read: false,
       createdAt: now,
     });
+
+    if (!Array.isArray(db.loginLogs)) db.loginLogs = [];
+    db.loginLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      userId: newUser.id,
+      userName: newUser.name,
+      userIdentifier: newUser.identifier,
+      role: newUser.role,
+      timestamp: now,
+      ipAddress: '127.0.0.1',
+      userAgent: 'Web Registration',
+      totalInvested: 0,
+      activePlanName: null,
+    });
+    if (db.loginLogs.length > 200) db.loginLogs.length = 200;
+    saveDb(db);
 
     const tokenPayload = btoa(
       JSON.stringify({ userId: newUser.id, role: newUser.role, exp: Date.now() + 7 * 86400_000 })
@@ -835,12 +918,16 @@ export async function handleLocalLedgerFallback<T = any>(
   }
 
   if (endpoint === '/api/admin/overview' && method === 'GET') {
-    db.users.forEach((u) => recalculateWallet(db, u.id));
+    db.users.forEach((u) => {
+      recalculateWallet(db, u.id);
+      u.totalInvested = calculateLocalUserInvested(db, u.id);
+    });
     return ok({
       settings: db.settings,
       users: db.users.map(formatSafeUser),
       wallets: db.wallets,
       plans: db.plans,
+      loginLogs: db.loginLogs || [],
       transactions: [...db.transactions].reverse(),
       withdrawals: [...db.withdrawals].reverse(),
       withdrawalMethods: db.withdrawalMethods,

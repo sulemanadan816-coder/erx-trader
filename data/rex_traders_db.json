@@ -1,0 +1,520 @@
+{
+  "settings": {
+    "brandName": "REX TRADERS",
+    "logoUrl": "/rex-traders-logo.svg",
+    "logoAlt": "REX TRADERS Official Logo",
+    "whatsappChannelUrl": "https://whatsapp.com/channel/0029Vb5ZICEFSAt01mUETp3z",
+    "telegramSupportUrl": "https://t.me/rextrades0",
+    "telegramHandle": "@rextrades0",
+    "easypaisaNumber": "03260767504",
+    "easypaisaAccountLabel": "Official REX TRADERS Easypaisa Account",
+    "heroHeadline": "Smart Investment · Better Tomorrow",
+    "heroSubheadline": "REX TRADERS offers 12 structured 30-day investment packages from PKR 1,200 to PKR 300,000, a 3-level referral commission structure, direct support via Telegram and WhatsApp, and manual Easypaisa payment verification.",
+    "announcementText": "Official communication is conducted exclusively through our verified Telegram support (@rextrades0) and WhatsApp Channel."
+  },
+  "users": [
+    {
+      "id": "usr-admin-owner",
+      "name": "Suleman Adan (REX TRADERS Admin)",
+      "identifier": "sulemanadan816@gmail.com",
+      "passwordHash": "999bbb5c43dca034a75792ab5c0d7b9a:b1c978ee369b0e0615eab4428f0a635ed9a8537065c3b33f4bcb9c10ce339eada75bc57f8f2aec620578f7efbe89572ddbc5504bb742fab8c6252c4ddb129519",
+      "role": "admin",
+      "status": "ACTIVE",
+      "activePlanId": null,
+      "savedPayoutAccounts": [],
+      "createdAt": "2026-10-02T14:44:35.976Z",
+      "lastLoginAt": null,
+      "lastLoginIp": null,
+      "loginCount": 0,
+      "totalInvested": 0
+    },
+    {
+      "id": "usr-admin-abubakar",
+      "name": "Abubakar Arain (REX TRADERS Admin)",
+      "identifier": "abubakararain104@gmail.com",
+      "passwordHash": "777aaa4b32cb9023b64681ba4b0c6a8f:ecd7ffd685c035216d870d411061aee00dc7d4380ccfda83bfec8327b3d9e95d7433dc59e54067ba747e86ff7d1992c7d87ca13572a6678fa7918eb8ff5429cd",
+      "role": "admin",
+      "status": "ACTIVE",
+      "activePlanId": null,
+      "savedPayoutAccounts": [],
+      "createdAt": "2026-10-02T14:44:35.976Z",
+      "lastLoginAt": "2026-10-02T14:52:50.582Z",
+      "lastLoginIp": "127.0.0.1",
+      "loginCount": 2,
+      "totalInvested": 0
+    },
+    {
+      "id": "usr-client-1",
+      "name": "Client Account",
+      "identifier": "client@rextraders.com",
+      "passwordHash": "2b2fb7c338ca016f82fcb3040ca12a22:7a297f0499c88226a1f736aff551da75e9e4b80490f276e3cd8a76865841e38a8457c4da85b8a23e40723af6ed862a8e81dd83108dba75e3064d7ffe33c5c07f",
+      "role": "user",
+      "status": "ACTIVE",
+      "activePlanId": null,
+      "savedPayoutAccounts": [],
+      "createdAt": "2026-10-02T14:44:35.976Z",
+      "lastLoginAt": "2026-10-02T13:52:32.451Z",
+      "lastLoginIp": "182.180.142.10",
+      "loginCount": 3,
+      "totalInvested": 0
+    },
+    {
+      "id": "usr-1790952763952-b571dc",
+      "name": "Tariq Mehmood",
+      "identifier": "03129876543",
+      "passwordHash": "3966eb487feda57951e0443fe902962c:8951ad3029c285b1276e0260084790ad12c7f378fbff89eb5e36d74e4c7e98a9d6b18f934873a9e7824464a9a096ed701aa5593646aa4b8d9bfdea7d421d0113",
+      "role": "user",
+      "status": "ACTIVE",
+      "activePlanId": null,
+      "savedPayoutAccounts": [],
+      "createdAt": "2026-10-02T14:52:43.952Z",
+      "lastLoginAt": "2026-10-02T14:52:55.962Z",
+      "lastLoginIp": "127.0.0.1",
+      "loginCount": 4,
+      "totalInvested": 0
+    }
+  ],
+  "wallets": [
+    {
+      "id": "wal-usr-admin-owner",
+      "userId": "usr-admin-owner",
+      "availableBalance": 0,
+      "pendingBalance": 0,
+      "reservedWithdrawalBalance": 0,
+      "totalBalance": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "pendingWithdrawalsAmount": 0,
+      "completedWithdrawalsAmount": 0,
+      "currency": "PKR",
+      "updatedAt": "2026-10-02T14:52:55.962Z"
+    },
+    {
+      "id": "wal-usr-admin-abubakar",
+      "userId": "usr-admin-abubakar",
+      "availableBalance": 0,
+      "pendingBalance": 0,
+      "reservedWithdrawalBalance": 0,
+      "totalBalance": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "pendingWithdrawalsAmount": 0,
+      "completedWithdrawalsAmount": 0,
+      "currency": "PKR",
+      "updatedAt": "2026-10-02T14:52:55.962Z"
+    },
+    {
+      "id": "wal-usr-client-1",
+      "userId": "usr-client-1",
+      "availableBalance": 0,
+      "pendingBalance": 0,
+      "reservedWithdrawalBalance": 0,
+      "totalBalance": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "pendingWithdrawalsAmount": 0,
+      "completedWithdrawalsAmount": 0,
+      "currency": "PKR",
+      "updatedAt": "2026-10-02T14:52:55.962Z"
+    },
+    {
+      "id": "wal-usr-1790952763952-b571dc",
+      "userId": "usr-1790952763952-b571dc",
+      "availableBalance": 0,
+      "pendingBalance": 0,
+      "reservedWithdrawalBalance": 0,
+      "totalBalance": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "pendingWithdrawalsAmount": 0,
+      "completedWithdrawalsAmount": 0,
+      "currency": "PKR",
+      "updatedAt": "2026-10-02T14:52:55.962Z"
+    }
+  ],
+  "ledgerEntries": [],
+  "unifiedTransactions": [],
+  "transactions": [],
+  "orders": [],
+  "withdrawalMethods": [
+    {
+      "id": "wm-easypaisa",
+      "name": "Easypaisa",
+      "code": "EASYPAISA",
+      "minAmount": 500,
+      "maxAmount": 500000,
+      "feePercent": 0,
+      "feeFixed": 0,
+      "accountLabel": "Easypaisa Mobile Account Number (11 Digits)",
+      "requiresBankName": false,
+      "instructions": "Enter your registered 11-digit Easypaisa mobile number and matching account title.",
+      "active": true
+    },
+    {
+      "id": "wm-jazzcash",
+      "name": "JazzCash",
+      "code": "JAZZCASH",
+      "minAmount": 500,
+      "maxAmount": 500000,
+      "feePercent": 0,
+      "feeFixed": 0,
+      "accountLabel": "JazzCash Mobile Account Number (11 Digits)",
+      "requiresBankName": false,
+      "instructions": "Enter your registered 11-digit JazzCash mobile number and matching account title.",
+      "active": true
+    },
+    {
+      "id": "wm-bank",
+      "name": "Bank Transfer (IBAN / Account)",
+      "code": "BANK_TRANSFER",
+      "minAmount": 1000,
+      "maxAmount": 2000000,
+      "feePercent": 0,
+      "feeFixed": 0,
+      "accountLabel": "24-Character PK IBAN or Bank Account Number",
+      "requiresBankName": true,
+      "instructions": "Provide your full bank name, account title, and IBAN / account number.",
+      "active": true
+    }
+  ],
+  "withdrawals": [],
+  "notifications": [
+    {
+      "id": "notif-welcome-client",
+      "userId": "usr-client-1",
+      "title": "Welcome to REX TRADERS Client Portal",
+      "message": "All wallet balances and transactions in this portal are 100% backed by our server-side ledger. Submit an Easypaisa deposit or select a plan to begin.",
+      "type": "INFO",
+      "read": false,
+      "createdAt": "2026-10-02T14:44:35.976Z"
+    },
+    {
+      "id": "NOTIF-1790952763999",
+      "userId": "usr-1790952763952-b571dc",
+      "title": "Account Created Successfully",
+      "message": "Welcome to REX TRADERS. Your database-backed wallet has been initialized. Submit an Easypaisa deposit or select a service plan to get started.",
+      "type": "INFO",
+      "read": false,
+      "createdAt": "2026-10-02T14:52:43.952Z"
+    }
+  ],
+  "auditLogs": [],
+  "loginLogs": [
+    {
+      "id": "LOG-1790952775962-DE7CD7",
+      "userId": "usr-1790952763952-b571dc",
+      "userName": "Tariq Mehmood",
+      "userIdentifier": "03129876543",
+      "role": "user",
+      "timestamp": "2026-10-02T14:52:55.962Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
+    {
+      "id": "LOG-1790952770582-7B3ADC",
+      "userId": "usr-admin-abubakar",
+      "userName": "Abubakar Arain (REX TRADERS Admin)",
+      "userIdentifier": "abubakararain104@gmail.com",
+      "role": "admin",
+      "timestamp": "2026-10-02T14:52:50.582Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
+    {
+      "id": "LOG-1790952764064-E2B635",
+      "userId": "usr-1790952763952-b571dc",
+      "userName": "Tariq Mehmood",
+      "userIdentifier": "03129876543",
+      "role": "user",
+      "timestamp": "2026-10-02T14:52:44.064Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
+    {
+      "id": "LOG-1790952764000-2D85FC",
+      "userId": "usr-1790952763952-b571dc",
+      "userName": "Tariq Mehmood",
+      "userIdentifier": "03129876543",
+      "role": "user",
+      "timestamp": "2026-10-02T14:52:44.000Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
+    {
+      "id": "LOG-1790952757622-42494C",
+      "userId": "usr-admin-abubakar",
+      "userName": "Abubakar Arain (REX TRADERS Admin)",
+      "userIdentifier": "abubakararain104@gmail.com",
+      "role": "admin",
+      "timestamp": "2026-10-02T14:52:37.622Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
+    {
+      "id": "LOG-INIT-1",
+      "userId": "usr-client-1",
+      "userName": "Client Account",
+      "userIdentifier": "client@rextraders.com",
+      "role": "user",
+      "timestamp": "2026-10-02T14:52:32.451Z",
+      "ipAddress": "182.180.142.10",
+      "userAgent": "Chrome 122.0.0 (Windows NT 10.0)",
+      "totalInvested": 0,
+      "activePlanName": null
+    }
+  ],
+  "inquiries": [],
+  "plans": [
+    {
+      "id": "plan-1200",
+      "name": "Plan 01 — 1,200 Investment",
+      "targetAudience": "انویسٹمنٹ 1200 · Starter 30-Day Package",
+      "price": "1,200 PKR",
+      "dailyProfit": "600 PKR",
+      "totalProfit": "18,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Entry-level 30-day package with Rs. 600 daily profit and Rs. 18,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 1,200",
+        "Daily Profit (روزانہ منافع): Rs. 600",
+        "Total Profit (منافع مکمل): Rs. 18,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-3300",
+      "name": "Plan 02 — 3,300 Investment",
+      "targetAudience": "انویسٹمنٹ 3300 · Basic 30-Day Package",
+      "price": "3,300 PKR",
+      "dailyProfit": "1,650 PKR",
+      "totalProfit": "49,500 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Basic 30-day package with Rs. 1,650 daily profit and Rs. 49,500 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 3,300",
+        "Daily Profit (روزانہ منافع): Rs. 1,650",
+        "Total Profit (منافع مکمل): Rs. 49,500",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-8000",
+      "name": "Plan 03 — 8,000 Investment",
+      "targetAudience": "انویسٹمنٹ 8000 · Standard 30-Day Package",
+      "price": "8,000 PKR",
+      "dailyProfit": "4,000 PKR",
+      "totalProfit": "120,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Standard 30-day package with Rs. 4,000 daily profit and Rs. 120,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 8,000",
+        "Daily Profit (روزانہ منافع): Rs. 4,000",
+        "Total Profit (منافع مکمل): Rs. 120,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": true,
+      "active": true
+    },
+    {
+      "id": "plan-15000",
+      "name": "Plan 04 — 15,000 Investment",
+      "targetAudience": "انویسٹمنٹ 15000 · Silver 30-Day Package",
+      "price": "15,000 PKR",
+      "dailyProfit": "7,500 PKR",
+      "totalProfit": "225,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Silver 30-day package with Rs. 7,500 daily profit and Rs. 225,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 15,000",
+        "Daily Profit (روزانہ منافع): Rs. 7,500",
+        "Total Profit (منافع مکمل): Rs. 225,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-28000",
+      "name": "Plan 05 — 28,000 Investment",
+      "targetAudience": "انویسٹمنٹ 28000 · Growth 30-Day Package",
+      "price": "28,000 PKR",
+      "dailyProfit": "14,000 PKR",
+      "totalProfit": "420,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Growth 30-day package with Rs. 14,000 daily profit and Rs. 420,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 28,000",
+        "Daily Profit (روزانہ منافع): Rs. 14,000",
+        "Total Profit (منافع مکمل): Rs. 420,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-45000",
+      "name": "Plan 06 — 45,000 Investment",
+      "targetAudience": "انویسٹمنٹ 45000 · Gold 30-Day Package",
+      "price": "45,000 PKR",
+      "dailyProfit": "22,500 PKR",
+      "totalProfit": "675,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Gold 30-day package with Rs. 22,500 daily profit and Rs. 675,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 45,000",
+        "Daily Profit (روزانہ منافع): Rs. 22,500",
+        "Total Profit (منافع مکمل): Rs. 675,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": true,
+      "active": true
+    },
+    {
+      "id": "plan-62000",
+      "name": "Plan 07 — 62,000 Investment",
+      "targetAudience": "انویسٹمنٹ 62000 · Premier 30-Day Package",
+      "price": "62,000 PKR",
+      "dailyProfit": "31,000 PKR",
+      "totalProfit": "930,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Premier 30-day package with Rs. 31,000 daily profit and Rs. 930,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 62,000",
+        "Daily Profit (روزانہ منافع): Rs. 31,000",
+        "Total Profit (منافع مکمل): Rs. 930,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-85000",
+      "name": "Plan 08 — 85,000 Investment",
+      "targetAudience": "انویسٹمنٹ 85000 · Platinum 30-Day Package",
+      "price": "85,000 PKR",
+      "dailyProfit": "42,500 PKR",
+      "totalProfit": "1,275,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Platinum 30-day package with Rs. 42,500 daily profit and Rs. 1,275,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 85,000",
+        "Daily Profit (روزانہ منافع): Rs. 42,500",
+        "Total Profit (منافع مکمل): Rs. 1,275,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-115000",
+      "name": "Plan 09 — 115,000 Investment",
+      "targetAudience": "انویسٹمنٹ 115000 · Executive 30-Day Package",
+      "price": "115,000 PKR",
+      "dailyProfit": "57,500 PKR",
+      "totalProfit": "1,275,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Executive 30-day package with Rs. 57,500 daily profit and Rs. 1,275,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 115,000",
+        "Daily Profit (روزانہ منافع): Rs. 57,500",
+        "Total Profit (منافع مکمل): Rs. 1,275,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-180000",
+      "name": "Plan 10 — 180,000 Investment",
+      "targetAudience": "انویسٹمنٹ 180000 · Diamond 30-Day Package",
+      "price": "180,000 PKR",
+      "dailyProfit": "90,000 PKR",
+      "totalProfit": "2,700,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Diamond 30-day package with Rs. 90,000 daily profit and Rs. 2,700,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 180,000",
+        "Daily Profit (روزانہ منافع): Rs. 90,000",
+        "Total Profit (منافع مکمل): Rs. 2,700,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-250000",
+      "name": "Plan 11 — 250,000 Investment",
+      "targetAudience": "انویسٹمنٹ 250000 · Elite 30-Day Package",
+      "price": "250,000 PKR",
+      "dailyProfit": "125,000 PKR",
+      "totalProfit": "3,750,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Elite 30-day package with Rs. 125,000 daily profit and Rs. 3,750,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 250,000",
+        "Daily Profit (روزانہ منافع): Rs. 125,000",
+        "Total Profit (منافع مکمل): Rs. 3,750,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": false,
+      "active": true
+    },
+    {
+      "id": "plan-300000",
+      "name": "Plan 12 — 300,000 Investment",
+      "targetAudience": "انویسٹمنٹ 300000 · Crown 30-Day Package",
+      "price": "300,000 PKR",
+      "dailyProfit": "150,000 PKR",
+      "totalProfit": "4,500,000 PKR",
+      "currency": "PKR",
+      "duration": "30 Days (30 دن)",
+      "description": "Top-tier 30-day package with Rs. 150,000 daily profit and Rs. 4,500,000 total 30-day return.",
+      "features": [
+        "Investment (انویسٹمنٹ): Rs. 300,000",
+        "Daily Profit (روزانہ منافع): Rs. 150,000",
+        "Total Profit (منافع مکمل): Rs. 4,500,000",
+        "Plan Duration (پلان مدت): 30 Days (30 دن)"
+      ],
+      "ctaText": "Invest Now",
+      "isPopular": true,
+      "active": true
+    }
+  ],
+  "idempotencyKeys": {}
+}

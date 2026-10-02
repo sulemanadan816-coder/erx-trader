@@ -86,6 +86,23 @@ export interface UserAccount {
   activePlanId?: string | null;
   savedPayoutAccounts?: SavedPayoutAccount[];
   createdAt: string;
+  lastLoginAt?: string | null;
+  lastLoginIp?: string | null;
+  loginCount?: number;
+  totalInvested?: number;
+}
+
+export interface LoginLogEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userIdentifier: string;
+  role: 'user' | 'admin';
+  timestamp: string;
+  ipAddress: string;
+  userAgent: string;
+  totalInvested: number;
+  activePlanName?: string | null;
 }
 
 export interface WalletAccount {

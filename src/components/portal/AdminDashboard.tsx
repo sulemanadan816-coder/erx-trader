@@ -1,10 +1,31 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Eye, EyeOff, Plus, RefreshCw, ShieldAlert, Trash2, Upload } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  Activity,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  Eye,
+  EyeOff,
+  Filter,
+  Globe,
+  LogIn,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  User,
+  Users,
+} from 'lucide-react';
 import {
   AuditLogEntry,
   DepositStatus,
   InquiryStatus,
   LedgerEntry,
+  LoginLogEntry,
   PageRoute,
   PaymentTransaction,
   ServicePlan,
@@ -58,6 +79,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [auditLogs, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [inquiries, setInquiries] = useState<SupportInquiry[]>([]);
+  const [loginLogs, setLoginLogs] = useState<LoginLogEntry[]>([]);
+
+  // --- Users & Login Surveillance State ---
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userFilter, setUserFilter] = useState<'ALL' | 'INVESTED' | 'NON_INVESTED' | 'SUSPENDED'>('ALL');
+  const [loginLogSearchQuery, setLoginLogSearchQuery] = useState('');
+  const [loginLogRoleFilter, setLoginLogRoleFilter] = useState<'ALL' | 'user' | 'admin'>('ALL');
+  const [activeUserSubView, setActiveUserSubView] = useState<'investments' | 'logins'>('investments');
 
   // --- Withdrawal Management State ---
   const [wdFilter, setWdFilter] = useState<'ALL' | WithdrawalStatus>('ALL');
@@ -131,6 +160,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setLedgerEntries(data.ledgerEntries || []);
         setAuditLog(data.auditLogs || []);
         setInquiries(data.inquiries || []);
+        setLoginLogs(data.loginLogs || []);
         if (data.settings) {
           setLogoUrlInput(data.settings.logoUrl || '');
           setHeroHeadlineInput(data.settings.heroHeadline || '');
@@ -457,6 +487,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const filteredDeposits =
     depFilter === 'All' ? deposits : deposits.filter((t) => t.status === depFilter);
 
+  const totalPlatformInvested = useMemo(() => {
+    return users
+      .filter((u) => u.role !== 'admin')
+      .reduce((sum, u) => sum + (u.totalInvested || 0), 0);
+  }, [users]);
+
+  const activeInvestorsCount = useMemo(() => {
+    return users.filter((u) => u.role !== 'admin' && (u.totalInvested || 0) > 0).length;
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      if (userFilter === 'INVESTED' && (!u.totalInvested || u.totalInvested <= 0)) return false;
+      if (userFilter === 'NON_INVESTED' && (u.totalInvested || 0) > 0) return false;
+      if (userFilter === 'SUSPENDED' && u.status !== 'SUSPENDED') return false;
+      if (userSearchQuery.trim()) {
+        const q = userSearchQuery.trim().toLowerCase();
+        return (
+          u.name.toLowerCase().includes(q) ||
+          u.identifier.toLowerCase().includes(q) ||
+          u.id.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [users, userFilter, userSearchQuery]);
+
+  const filteredLoginLogs = useMemo(() => {
+    return loginLogs.filter((log) => {
+      if (loginLogRoleFilter !== 'ALL' && log.role !== loginLogRoleFilter) return false;
+      if (loginLogSearchQuery.trim()) {
+        const q = loginLogSearchQuery.trim().toLowerCase();
+        return (
+          log.userName.toLowerCase().includes(q) ||
+          log.userIdentifier.toLowerCase().includes(q) ||
+          log.ipAddress.toLowerCase().includes(q) ||
+          log.id.toLowerCase().includes(q) ||
+          (log.activePlanName && log.activePlanName.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [loginLogs, loginLogRoleFilter, loginLogSearchQuery]);
+
   return (
     <section className="py-8 sm:py-10 bg-slate-50 min-h-[calc(100vh-4rem)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -493,35 +567,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Summary Metrics Row (Tabular Numerals) */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <div className="text-xs text-slate-500">Pending Withdrawals</div>
-            <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-amber-700">
-              {withdrawals.filter((w) => w.status === 'PENDING' || w.status === 'PROCESSING').length}
-            </div>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <div className="text-xs text-slate-500">Completed Withdrawals</div>
-            <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-emerald-700">
-              {withdrawals.filter((w) => w.status === 'COMPLETED').length}
-            </div>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5">
             <div className="text-xs text-slate-500">Pending Deposits</div>
             <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-amber-700">
               {deposits.filter((t) => t.status === 'Pending').length}
             </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Payment approvals</div>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <div className="text-xs text-slate-500">Ledger Entries</div>
-            <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-slate-900">
-              {ledgerEntries.length}
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="text-xs text-slate-500">Pending Withdrawals</div>
+            <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-amber-700">
+              {withdrawals.filter((w) => w.status === 'PENDING' || w.status === 'PROCESSING').length}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">In payout queue</div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="text-xs text-slate-500 flex items-center justify-between">
+              <span>Total Invested</span>
+              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <div className="mt-1 font-mono tabular-nums text-lg sm:text-xl font-bold text-emerald-700 truncate" title={`Rs. ${totalPlatformInvested.toLocaleString()} PKR`}>
+              Rs. {totalPlatformInvested.toLocaleString()}
+            </div>
+            <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
+              {activeInvestorsCount} active {activeInvestorsCount === 1 ? 'client' : 'clients'}
             </div>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4 col-span-2 lg:col-span-1">
-            <div className="text-xs text-slate-500">Audit Log Events</div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="text-xs text-slate-500 flex items-center justify-between">
+              <span>Logins Tracked</span>
+              <LogIn className="w-3.5 h-3.5 text-indigo-600" />
+            </div>
+            <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-indigo-700">
+              {loginLogs.length}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Across {users.length} users
+            </div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="text-xs text-slate-500">Completed Payouts</div>
+            <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-emerald-700">
+              {withdrawals.filter((w) => w.status === 'COMPLETED').length}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Verified transfers</div>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5">
+            <div className="text-xs text-slate-500">Ledger &amp; Audit</div>
             <div className="mt-1 font-mono tabular-nums text-2xl font-bold text-slate-900">
-              {auditLogs.length}
+              {ledgerEntries.length + auditLogs.length}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              {auditLogs.length} audit events
             </div>
           </div>
         </div>
@@ -556,7 +654,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               { id: 'methods', label: '4. Withdrawal Methods' },
               { id: 'audit', label: '5. Audit Log' },
               { id: 'plans', label: '6. Plans' },
-              { id: 'users', label: '7. Users' },
+              {
+                id: 'users',
+                label: `7. Logins & Invested (${users.length} Users · ${loginLogs.length} Logins)`,
+              },
               { id: 'inquiries', label: '8. Support' },
               { id: 'settings', label: '9. Settings' },
             ] as { id: AdminTab; label: string }[]
@@ -1530,59 +1631,495 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* ==================== TAB 7: USERS ==================== */}
+        {/* ==================== TAB 7: USERS & LOGIN SURVEILLANCE ==================== */}
         {activeTab === 'users' && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-            <h2 className="text-lg font-bold text-slate-900">Registered Portal Accounts</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-xs text-slate-500">
-                    <th className="py-2.5 pr-4 font-semibold">Name</th>
-                    <th className="py-2.5 px-4 font-semibold">Identifier</th>
-                    <th className="py-2.5 px-4 font-semibold">Role</th>
-                    <th className="py-2.5 px-4 font-semibold">Status</th>
-                    <th className="py-2.5 px-4 font-semibold">Active Plan</th>
-                    <th className="py-2.5 pl-4 font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 text-xs">
-                  {users.map((u) => {
-                    const userPlan = plans.find((p) => p.id === u.activePlanId);
-                    return (
-                      <tr key={u.id}>
-                        <td className="py-3 pr-4 font-semibold text-slate-900">{u.name}</td>
-                        <td className="py-3 px-4 font-mono text-slate-600">{u.identifier}</td>
-                        <td className="py-3 px-4 font-medium text-slate-800">{u.role}</td>
-                        <td className="py-3 px-4 font-semibold">
-                          <span
-                            className={
-                              u.status === 'SUSPENDED' ? 'text-red-700' : 'text-emerald-700'
-                            }
-                          >
-                            {u.status || 'ACTIVE'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-700">
-                          {userPlan ? userPlan.name : 'None'}
-                        </td>
-                        <td className="py-3 pl-4">
-                          {u.role !== 'admin' && (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleUserStatus(u)}
-                              className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 rounded cursor-pointer"
-                            >
-                              {u.status === 'SUSPENDED' ? 'Activate' : 'Suspend'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="space-y-6">
+            {/* Header & Access Notice */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-semibold mb-2">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Confidential Surveillance · Administrator Eyes Only</span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+                    Client Logins &amp; Total Investments Tracking
+                  </h2>
+                  <p className="text-xs text-slate-600 mt-1 max-w-3xl leading-relaxed">
+                    Exclusively accessible by authorized administrators. Inspect exactly who has
+                    logged into the website, their device IP address and login timestamps, and how
+                    much money each client has invested on REX TRADERS.
+                  </p>
+                </div>
+
+                {/* Sub-view switcher tabs */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg self-start shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveUserSubView('investments')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md cursor-pointer transition-colors ${
+                      activeUserSubView === 'investments'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Client Directory ({users.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveUserSubView('logins')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md cursor-pointer transition-colors ${
+                      activeUserSubView === 'logins'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Login History ({loginLogs.length})</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI Cards Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-6 pt-6 border-t border-slate-100">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3.5">
+                  <div className="text-xs text-slate-500 flex items-center justify-between">
+                    <span>Total Client Investments</span>
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+                  <div className="mt-1 font-mono tabular-nums text-lg sm:text-xl font-bold text-emerald-700">
+                    Rs. {totalPlatformInvested.toLocaleString()} PKR
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {activeInvestorsCount} clients with active capital
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3.5">
+                  <div className="text-xs text-slate-500 flex items-center justify-between">
+                    <span>Total Registered Clients</span>
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                  </div>
+                  <div className="mt-1 font-mono tabular-nums text-lg sm:text-xl font-bold text-slate-900">
+                    {users.filter((u) => u.role !== 'admin').length} Clients
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {users.filter((u) => u.role === 'admin').length} platform admins
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3.5">
+                  <div className="text-xs text-slate-500 flex items-center justify-between">
+                    <span>Total Logins Tracked</span>
+                    <Activity className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                  <div className="mt-1 font-mono tabular-nums text-lg sm:text-xl font-bold text-blue-700">
+                    {loginLogs.length} Sessions
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    With timestamps &amp; IP records
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3.5">
+                  <div className="text-xs text-slate-500 flex items-center justify-between">
+                    <span>Latest Login Activity</span>
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-900 text-sm truncate">
+                    {loginLogs[0]?.userName || 'No login yet'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    {loginLogs[0]
+                      ? new Date(loginLogs[0].timestamp).toLocaleString()
+                      : 'Awaiting activity'}
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* ================= SUB-VIEW 1: CLIENT ACCOUNTS & INVESTMENTS DIRECTORY ================= */}
+            {activeUserSubView === 'investments' && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Client Accounts &amp; Investment Summary ({filteredUsers.length})
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Inspect each client&apos;s invested capital (انویسٹمنٹ), current plan, wallet
+                      balance, and recent login history.
+                    </p>
+                  </div>
+
+                  {/* Filters & Search */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        placeholder="Search client by name or email..."
+                        className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-56 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                      {(
+                        [
+                          { id: 'ALL', label: 'All Users' },
+                          { id: 'INVESTED', label: 'Active Investors' },
+                          { id: 'NON_INVESTED', label: 'Zero Investment' },
+                          { id: 'SUSPENDED', label: 'Suspended' },
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setUserFilter(f.id)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-md cursor-pointer transition-colors ${
+                            userFilter === f.id
+                              ? 'bg-white text-slate-900 font-semibold shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {filteredUsers.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                    No users match your search and filter criteria.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-xs text-slate-500">
+                          <th className="py-2.5 pr-4 font-semibold">Client / Account</th>
+                          <th className="py-2.5 px-4 font-semibold">Total Invested (انویسٹمنٹ)</th>
+                          <th className="py-2.5 px-4 font-semibold">Active Plan</th>
+                          <th className="py-2.5 px-4 font-semibold">Wallet Balances</th>
+                          <th className="py-2.5 px-4 font-semibold">Last Login &amp; IP</th>
+                          <th className="py-2.5 px-4 font-semibold">Account Status</th>
+                          <th className="py-2.5 pl-4 font-semibold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-xs">
+                        {filteredUsers.map((u) => {
+                          const userPlan = plans.find((p) => p.id === u.activePlanId);
+                          const userWallet = wallets.find((w) => w.userId === u.id);
+                          const isInvested = (u.totalInvested || 0) > 0;
+
+                          return (
+                            <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
+                              {/* Client Account */}
+                              <td className="py-3.5 pr-4">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                                    {u.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                      <span>{u.name}</span>
+                                      {u.role === 'admin' && (
+                                        <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-900 rounded">
+                                          Admin
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="font-mono text-[11px] text-slate-500">
+                                      {u.identifier}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 mt-0.5">
+                                      Joined: {new Date(u.createdAt).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Total Invested */}
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-1">
+                                  <div
+                                    className={`font-mono text-sm font-bold tabular-nums ${
+                                      isInvested ? 'text-emerald-700' : 'text-slate-500'
+                                    }`}
+                                  >
+                                    Rs. {(u.totalInvested || 0).toLocaleString()} PKR
+                                  </div>
+                                  {isInvested ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>Active Capital</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] text-slate-400 bg-slate-100">
+                                      No investment yet
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Active Plan */}
+                              <td className="py-3.5 px-4">
+                                {userPlan ? (
+                                  <div className="space-y-0.5">
+                                    <span className="inline-block px-2 py-0.5 font-semibold text-[11px] bg-blue-50 text-blue-800 border border-blue-200 rounded">
+                                      {userPlan.name}
+                                    </span>
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                      Profit: {userPlan.dailyProfit || '—'} daily
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">None</span>
+                                )}
+                              </td>
+
+                              {/* Wallet Balance */}
+                              <td className="py-3.5 px-4 font-mono text-[11px]">
+                                {userWallet ? (
+                                  <div className="space-y-0.5">
+                                    <div className="text-slate-900 font-semibold">
+                                      Avail: Rs. {userWallet.availableBalance.toLocaleString()}
+                                    </div>
+                                    <div className="text-slate-500">
+                                      Pending: Rs. {userWallet.pendingBalance.toLocaleString()}
+                                    </div>
+                                    <div className="text-slate-400 text-[10px]">
+                                      Total In: Rs. {userWallet.totalDeposited.toLocaleString()}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+
+                              {/* Last Login & IP */}
+                              <td className="py-3.5 px-4">
+                                <div className="space-y-0.5">
+                                  <div className="font-medium text-slate-900">
+                                    {u.lastLoginAt ? (
+                                      new Date(u.lastLoginAt).toLocaleString()
+                                    ) : (
+                                      <span className="text-slate-400 italic">Never logged in</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-500">
+                                    <Globe className="w-3 h-3 text-slate-400" />
+                                    <span>{u.lastLoginIp || '127.0.0.1'}</span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>{u.loginCount || 1} logins</span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
+                                    u.status === 'SUSPENDED'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {u.status || 'ACTIVE'}
+                                </span>
+                              </td>
+
+                              {/* Action */}
+                              <td className="py-3.5 pl-4 text-right">
+                                {u.role !== 'admin' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleUserStatus(u)}
+                                    className={`px-2.5 py-1 text-xs font-semibold rounded cursor-pointer transition-colors ${
+                                      u.status === 'SUSPENDED'
+                                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    {u.status === 'SUSPENDED' ? 'Activate' : 'Suspend'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ================= SUB-VIEW 2: LIVE WEBSITE LOGIN AUDIT LOG ================= */}
+            {activeUserSubView === 'logins' && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Live Website Login Audit Trail ({filteredLoginLogs.length} Events)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Timestamped session history recording every user and administrator sign-in,
+                      IP address, device, and total capital invested at the moment of login.
+                    </p>
+                  </div>
+
+                  {/* Filters & Search */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={loginLogSearchQuery}
+                        onChange={(e) => setLoginLogSearchQuery(e.target.value)}
+                        placeholder="Search by user, email, or IP..."
+                        className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-56 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                      {(
+                        [
+                          { id: 'ALL', label: 'All Logins' },
+                          { id: 'user', label: 'Clients Only' },
+                          { id: 'admin', label: 'Admins Only' },
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setLoginLogRoleFilter(f.id)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-md cursor-pointer transition-colors ${
+                            loginLogRoleFilter === f.id
+                              ? 'bg-white text-slate-900 font-semibold shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {filteredLoginLogs.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                    No login events match your search query.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-xs text-slate-500">
+                          <th className="py-2.5 pr-4 font-semibold">Timestamp</th>
+                          <th className="py-2.5 px-4 font-semibold">User Account</th>
+                          <th className="py-2.5 px-4 font-semibold">Invested (At Login)</th>
+                          <th className="py-2.5 px-4 font-semibold">Active Plan</th>
+                          <th className="py-2.5 px-4 font-semibold">IP Address</th>
+                          <th className="py-2.5 pl-4 font-semibold">Device / Browser</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-xs">
+                        {filteredLoginLogs.map((log) => {
+                          const isInvested = log.totalInvested > 0;
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                              {/* Timestamp */}
+                              <td className="py-3.5 pr-4 whitespace-nowrap">
+                                <div className="font-semibold text-slate-900">
+                                  {new Date(log.timestamp).toLocaleDateString()}
+                                </div>
+                                <div className="font-mono text-[11px] text-slate-500">
+                                  {new Date(log.timestamp).toLocaleTimeString()}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                  {log.id}
+                                </div>
+                              </td>
+
+                              {/* User */}
+                              <td className="py-3.5 px-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center text-[11px] shrink-0">
+                                    {log.userName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                                      <span>{log.userName}</span>
+                                      <span
+                                        className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                          log.role === 'admin'
+                                            ? 'bg-amber-100 text-amber-900'
+                                            : 'bg-blue-100 text-blue-900'
+                                        }`}
+                                      >
+                                        {log.role === 'admin' ? 'Admin' : 'Client'}
+                                      </span>
+                                    </div>
+                                    <div className="font-mono text-[11px] text-slate-500">
+                                      {log.userIdentifier}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Invested */}
+                              <td className="py-3.5 px-4 font-mono">
+                                <div
+                                  className={`text-sm font-bold tabular-nums ${
+                                    isInvested ? 'text-emerald-700' : 'text-slate-500'
+                                  }`}
+                                >
+                                  Rs. {log.totalInvested.toLocaleString()} PKR
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  {isInvested ? 'Verified Capital' : '0 PKR Invested'}
+                                </div>
+                              </td>
+
+                              {/* Active Plan */}
+                              <td className="py-3.5 px-4">
+                                {log.activePlanName ? (
+                                  <span className="inline-block px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200 rounded">
+                                    {log.activePlanName}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-xs italic">
+                                    No Active Plan
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* IP Address */}
+                              <td className="py-3.5 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span>{log.ipAddress}</span>
+                                </div>
+                              </td>
+
+                              {/* User Agent */}
+                              <td className="py-3.5 pl-4 text-slate-600 text-[11px] max-w-xs truncate" title={log.userAgent}>
+                                {log.userAgent}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -334,12 +334,34 @@ async function runAllTests() {
     assert.ok(actions.includes('WITHDRAWAL_REJECTED'));
     assert.ok(actions.includes('WITHDRAWAL_PROCESSING'));
     assert.ok(actions.includes('WITHDRAWAL_COMPLETED'));
-    console.log('✓ [13/13] Immutable administrator audit log verification passed');
+    console.log('✓ [13/14] Immutable administrator audit log verification passed');
+  }
+
+  // 14. Test Login Tracking & User Investment Calculation
+  {
+    const logEntry = await engine.recordLogin({
+      userId: 'usr-client-1',
+      ipAddress: '182.180.142.10',
+      userAgent: 'Chrome 122.0.0 on Windows',
+    });
+    assert.ok(logEntry.id.startsWith('LOG-'));
+    assert.strictEqual(logEntry.userId, 'usr-client-1');
+    assert.strictEqual(logEntry.ipAddress, '182.180.142.10');
+    assert.strictEqual(logEntry.userName, 'Client Account');
+
+    const db = engine.readDbSync();
+    const updatedClient = db.users.find((u) => u.id === 'usr-client-1')!;
+    assert.ok(updatedClient.lastLoginAt);
+    assert.strictEqual(updatedClient.lastLoginIp, '182.180.142.10');
+    assert.ok(db.loginLogs.length >= 1, 'Login logs must contain entries');
+    const totalInvested = engine.calculateUserInvested(db, 'usr-client-1');
+    assert.strictEqual(typeof totalInvested, 'number');
+    console.log('✓ [14/14] Client login tracking & investment surveillance verification passed');
   }
 
   // Cleanup temp directory
   fs.rmSync(tempDir, { recursive: true, force: true });
-  console.log('\nALL 13 LEDGER, WALLET, WITHDRAWAL & SECURITY TESTS PASSED SUCCESSFULLY.');
+  console.log('\nALL 14 LEDGER, WALLET, WITHDRAWAL, LOGIN & SECURITY TESTS PASSED SUCCESSFULLY.');
 }
 
 runAllTests().catch((err) => {

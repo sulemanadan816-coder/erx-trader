@@ -6,6 +6,7 @@ import type {
   DepositStatus,
   InquiryStatus,
   LedgerEntry,
+  LoginLogEntry,
   PaymentTransaction,
   SavedPayoutAccount,
   ServiceOrder,
@@ -117,6 +118,7 @@ export interface DatabaseSchema {
   withdrawals: WithdrawalRequest[];
   notifications: UserNotification[];
   auditLogs: AuditLogEntry[];
+  loginLogs: LoginLogEntry[];
   inquiries: SupportInquiry[];
   plans: ServicePlan[];
   idempotencyKeys: Record<string, { createdAt: number; resultId: string }>;
@@ -470,6 +472,10 @@ export function createInitialDb(): DatabaseSchema {
         activePlanId: null,
         savedPayoutAccounts: [],
         createdAt: now,
+        lastLoginAt: now,
+        lastLoginIp: '182.180.142.10',
+        loginCount: 3,
+        totalInvested: 0,
       },
     ],
     wallets: [
@@ -535,6 +541,20 @@ export function createInitialDb(): DatabaseSchema {
       },
     ],
     auditLogs: [],
+    loginLogs: [
+      {
+        id: 'LOG-INIT-1',
+        userId: 'usr-client-1',
+        userName: 'Client Account',
+        userIdentifier: 'client@rextraders.com',
+        role: 'user',
+        timestamp: now,
+        ipAddress: '182.180.142.10',
+        userAgent: 'Chrome 122.0.0 (Windows NT 10.0)',
+        totalInvested: 0,
+        activePlanName: null,
+      },
+    ],
     inquiries: [],
     plans: JSON.parse(JSON.stringify(INITIAL_PLANS)),
     idempotencyKeys: {},
@@ -606,6 +626,12 @@ export class LedgerEngine {
           activePlanId:
             u.activePlanId && validPlanIds.has(u.activePlanId) ? u.activePlanId : null,
           savedPayoutAccounts: Array.isArray(u.savedPayoutAccounts) ? u.savedPayoutAccounts : [],
+          lastLoginAt:
+            u.lastLoginAt ||
+            (u.id === 'usr-client-1' ? new Date(Date.now() - 3600000).toISOString() : null),
+          lastLoginIp: u.lastLoginIp || (u.id === 'usr-client-1' ? '182.180.142.10' : null),
+          loginCount: typeof u.loginCount === 'number' ? u.loginCount : (u.id === 'usr-client-1' ? 3 : 0),
+          totalInvested: typeof u.totalInvested === 'number' ? u.totalInvested : 0,
         };
       });
 
@@ -618,6 +644,11 @@ export class LedgerEngine {
           normalizedUsers.unshift(seededAdmin);
         }
       }
+
+      const rawLoginLogs =
+        Array.isArray(parsed.loginLogs) && parsed.loginLogs.length > 0
+          ? parsed.loginLogs
+          : fallback.loginLogs;
 
       const db: DatabaseSchema = {
         settings: parsed.settings || fallback.settings,
@@ -636,6 +667,7 @@ export class LedgerEngine {
         withdrawals: Array.isArray(parsed.withdrawals) ? parsed.withdrawals : [],
         notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
         auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
+        loginLogs: rawLoginLogs,
         inquiries: Array.isArray(parsed.inquiries) ? parsed.inquiries : [],
         plans: resolvedPlans,
         idempotencyKeys: parsed.idempotencyKeys || {},
@@ -700,6 +732,61 @@ export class LedgerEngine {
       () => undefined
     );
     return next;
+  }
+
+  public calculateUserInvested(db: DatabaseSchema, userId: string): number {
+    const wallet = this.getOrCreateWallet(db, userId);
+    const approvedDeposits = db.transactions
+      .filter((t) => t.userId === userId && t.status === 'Approved')
+      .reduce((sum, t) => sum + (t.numericAmount || parseNumericPkr(t.amount)), 0);
+    const activeOrders = db.orders
+      .filter((o) => o.userId === userId && (o.status === 'ACTIVE' || o.status === 'COMPLETED'))
+      .reduce((sum, o) => sum + o.amount, 0);
+    return Math.max(wallet.totalDeposited, approvedDeposits, activeOrders);
+  }
+
+  public async recordLogin(params: {
+    userId: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<LoginLogEntry> {
+    return this.runInTransaction((db) => {
+      const user = db.users.find((u) => u.id === params.userId);
+      if (!user) throw new Error('User not found for login record.');
+
+      const totalInvested = this.calculateUserInvested(db, user.id);
+      const activePlan = db.plans.find((p) => p.id === user.activePlanId);
+      const now = new Date().toISOString();
+
+      user.lastLoginAt = now;
+      user.lastLoginIp = params.ipAddress || '127.0.0.1';
+      user.loginCount = (user.loginCount || 0) + 1;
+      user.totalInvested = totalInvested;
+
+      if (!Array.isArray(db.loginLogs)) {
+        db.loginLogs = [];
+      }
+
+      const logEntry: LoginLogEntry = {
+        id: `LOG-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+        userId: user.id,
+        userName: user.name,
+        userIdentifier: user.identifier,
+        role: user.role,
+        timestamp: now,
+        ipAddress: params.ipAddress || '127.0.0.1',
+        userAgent: params.userAgent || 'Web Browser',
+        totalInvested,
+        activePlanName: activePlan ? activePlan.name : null,
+      };
+
+      db.loginLogs.unshift(logEntry);
+      if (db.loginLogs.length > 200) {
+        db.loginLogs.length = 200;
+      }
+
+      return logEntry;
+    });
   }
 
   public getOrCreateWallet(db: DatabaseSchema, userId: string): WalletAccount {
