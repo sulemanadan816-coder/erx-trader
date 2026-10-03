@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Check, Copy, ExternalLink } from 'lucide-react';
+import React from 'react';
+import { ExternalLink, ShieldCheck, Zap } from 'lucide-react';
 import { PageRoute, SiteSettings } from '../../types';
 import { BrandLogo } from '../brand/BrandLogo';
 
@@ -9,264 +9,186 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate, settings }) => {
-  const [copiedEasypaisa, setCopiedEasypaisa] = useState(false);
-
-  const handleCopyEasypaisa = async () => {
-    try {
-      await navigator.clipboard.writeText(settings.easypaisaNumber);
-      setCopiedEasypaisa(true);
-      setTimeout(() => setCopiedEasypaisa(false), 2500);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = settings.easypaisaNumber;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopiedEasypaisa(true);
-      setTimeout(() => setCopiedEasypaisa(false), 2500);
-    }
-  };
-
   const go = (page: PageRoute) => {
     onNavigate(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <footer className="bg-slate-900 text-slate-300 border-t border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-slate-800">
-          {/* Column 1: REX TRADERS Brand & Description (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
+    <footer className="bg-[#060911] text-slate-300 border-t border-[#cba352]/20 relative overflow-hidden">
+      {/* Top subtle golden glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-[1px] bg-gradient-to-r from-transparent via-[#cba352]/50 to-transparent" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-slate-800/80">
+          {/* Column 1: TrustZone Brand & Bio (5 cols) */}
+          <div className="lg:col-span-5 space-y-4">
             <a
               href="/?page=home"
               onClick={(e) => {
                 e.preventDefault();
                 go('home');
               }}
-              className="inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-md"
+              className="inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cba352] rounded-lg"
             >
               <BrandLogo
                 logoUrl={settings.logoUrl}
                 brandName={settings.brandName}
                 variant="light"
-                showPlaceholderHint
               />
             </a>
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
-              REX TRADERS — Smart Investment, Better Tomorrow. Providing 12 structured 30-day
-              packages, a 3-level referral program, manual Easypaisa payment verification, and
-              direct support through official Telegram and WhatsApp channels.
+              TrustZone NexaPay is your trusted platform for smart digital investments and secure financial growth. We provide a transparent and user-friendly experience for all investors with guaranteed daily yields and instant payouts.
             </p>
+            <div className="pt-2 flex items-center gap-3 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                SSL 256-Bit Encrypted
+              </span>
+              <span>·</span>
+              <span className="text-[#cba352] font-semibold">Verified Platform</span>
+            </div>
           </div>
 
-          {/* Column 2: Website Navigation (2 cols) */}
+          {/* Column 2: Explore (2 cols) */}
           <div className="lg:col-span-2 space-y-3">
-            <h3 className="text-xs font-semibold text-white tracking-wide">Navigation</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Explore</h3>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <a
-                  href="/?page=home"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('home');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('home')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
                   Home
-                </a>
+                </button>
               </li>
               <li>
-                <a
-                  href="/?page=about"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('about');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('about')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  About REX TRADERS
-                </a>
+                  About TrustZone
+                </button>
               </li>
               <li>
-                <a
-                  href="/?page=plans"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('plans');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('plans')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  Plans &amp; Packages
-                </a>
+                  Investment Plans
+                </button>
               </li>
               <li>
-                <a
-                  href="/?page=how-it-works"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('how-it-works');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('contact')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  How It Works
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/?page=faq"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('faq');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
-                >
-                  FAQ
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/?page=contact"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('contact');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
-                >
-                  Contact &amp; Support
-                </a>
+                  Contact Support
+                </button>
               </li>
             </ul>
           </div>
 
-          {/* Column 3: Account & Legal (2 cols) */}
+          {/* Column 3: Account (2 cols) */}
           <div className="lg:col-span-2 space-y-3">
-            <h3 className="text-xs font-semibold text-white tracking-wide">Account &amp; Legal</h3>
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Account</h3>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <a
-                  href="/?page=login"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('login');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('login')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  Client Portal Sign In
-                </a>
+                  Login
+                </button>
               </li>
               <li>
-                <a
-                  href="/?page=register"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('register');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('register')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  Create Client Account
-                </a>
+                  Register
+                </button>
               </li>
               <li>
-                <a
-                  href="/?page=terms"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('terms');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('dashboard')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  Terms &amp; Conditions
-                </a>
+                  Client Dashboard
+                </button>
               </li>
               <li>
-                <a
-                  href="/?page=privacy"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    go('privacy');
-                  }}
-                  className="text-slate-400 hover:text-white transition-colors"
+                <button
+                  type="button"
+                  onClick={() => go('admin')}
+                  className="text-slate-400 hover:text-[#cba352] transition-colors cursor-pointer"
                 >
-                  Privacy Policy
-                </a>
+                  Admin Console
+                </button>
               </li>
             </ul>
           </div>
 
-          {/* Column 4: Official Support & Easypaisa (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
-            <h3 className="text-xs font-semibold text-white tracking-wide">
-              Official Contact &amp; Payment Channels
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-3 py-2 border-b border-slate-800">
-                <span className="text-slate-400">Telegram Support</span>
-                <a
-                  href={settings.telegramSupportUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-white hover:text-sky-400 font-medium transition-colors whitespace-nowrap"
-                >
-                  <span>{settings.telegramHandle}</span>
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                </a>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 py-2 border-b border-slate-800">
-                <span className="text-slate-400">WhatsApp Channel</span>
-                <a
-                  href={settings.whatsappChannelUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-white hover:text-emerald-400 font-medium transition-colors whitespace-nowrap"
-                >
-                  <span>Official Channel</span>
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                </a>
-              </div>
-
-              <div className="pt-1">
-                <div className="text-xs text-slate-400 mb-1.5">
-                  Official Easypaisa Number (Manual Verification)
+          {/* Column 4: Official Channels (3 cols) */}
+          <div className="lg:col-span-3 space-y-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Support &amp; Community</h3>
+            <p className="text-xs text-slate-400">
+              Connect directly with our 24/7 dedicated support team.
+            </p>
+            <div className="space-y-2.5 pt-1">
+              <a
+                href={settings.telegramSupportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-[#0e1424] border border-slate-800 hover:border-[#cba352]/50 text-xs text-slate-200 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-[#cba352]" />
+                  <span>Telegram: {settings.telegramHandle}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2 bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2">
-                  <span className="font-mono tabular-nums text-sm font-semibold text-white tracking-wider">
-                    {settings.easypaisaNumber}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyEasypaisa}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded bg-slate-700 hover:bg-slate-600 text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                    aria-label="Copy Easypaisa Number"
-                  >
-                    {copiedEasypaisa ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Number</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </a>
+              <a
+                href={settings.whatsappChannelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-[#0e1424] border border-slate-800 hover:border-emerald-500/50 text-xs text-slate-200 transition-colors"
+              >
+                <span>WhatsApp Official Channel</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </a>
             </div>
           </div>
         </div>
 
-        {/* Bottom Copyright & Service Notice */}
-        <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-400">
-          <p>&copy; {new Date().getFullYear()} {settings.brandName}. All rights reserved.</p>
-          <p className="max-w-xl sm:text-right leading-relaxed">
-            Service Notice: {settings.brandName} provides structured trading service plans and
-            support. Trading involves market risk; no fixed returns or guaranteed profits are
-            promised.
-          </p>
+        {/* Bottom Bar */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+          <div>
+            &copy; 2026 <strong>TrustZone</strong>. All Rights Reserved.
+          </div>
+          <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => go('privacy')}
+              className="hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              Privacy Policy
+            </button>
+            <button
+              type="button"
+              onClick={() => go('terms')}
+              className="hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              Terms of Service
+            </button>
+          </div>
         </div>
       </div>
     </footer>

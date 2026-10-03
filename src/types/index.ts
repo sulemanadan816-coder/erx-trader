@@ -19,6 +19,7 @@ export type DashboardTab =
   | 'wallet'
   | 'transactions'
   | 'plans'
+  | 'referrals'
   | 'withdraw'
   | 'profile'
   | 'support';
@@ -90,6 +91,10 @@ export interface UserAccount {
   lastLoginIp?: string | null;
   loginCount?: number;
   totalInvested?: number;
+  referralCode?: string;
+  referredBy?: string | null;
+  referralCount?: number;
+  totalReferralEarnings?: number;
 }
 
 export interface LoginLogEntry {
@@ -127,7 +132,8 @@ export type LedgerEntryType =
   | 'WITHDRAWAL_RELEASED'
   | 'SERVICE_PURCHASE'
   | 'REFUND'
-  | 'ADMIN_ADJUSTMENT';
+  | 'ADMIN_ADJUSTMENT'
+  | 'REFERRAL_COMMISSION';
 
 export interface LedgerEntry {
   id: string;
@@ -150,7 +156,8 @@ export type UnifiedTransactionType =
   | 'WITHDRAWAL'
   | 'SERVICE_PURCHASE'
   | 'REFUND'
-  | 'ADJUSTMENT';
+  | 'ADJUSTMENT'
+  | 'COMMISSION';
 
 export type UnifiedTransactionStatus =
   | 'PENDING'
@@ -322,3 +329,43 @@ export interface SiteSettings {
   heroSubheadline: string;
   announcementText: string;
 }
+
+export interface ReferralMember {
+  id: string;
+  userId: string;
+  name: string;
+  identifier: string;
+  joinedAt: string;
+  level: 1 | 2;
+  activePlanName?: string | null;
+  totalInvested: number;
+  commissionEarned: number;
+}
+
+export interface ReferralCommissionLog {
+  id: string;
+  referrerId: string;
+  referredUserId: string;
+  referredUserName: string;
+  level: 1 | 2;
+  commissionPercent: number;
+  sourceAmount: number;
+  commissionAmount: number;
+  planName: string;
+  createdAt: string;
+}
+
+export interface ReferralStatsResponse {
+  referralCode: string;
+  referralLink: string;
+  referredBy: string | null;
+  totalEarnings: number;
+  totalReferrals: number;
+  level1Count: number;
+  level2Count: number;
+  level1Earnings: number;
+  level2Earnings: number;
+  teamMembers: ReferralMember[];
+  commissionLogs: ReferralCommissionLog[];
+}
+

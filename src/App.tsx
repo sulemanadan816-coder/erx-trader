@@ -41,6 +41,14 @@ const VALID_PAGES: PageRoute[] = [
 
 function resolveInitialPage(): PageRoute {
   const params = new URLSearchParams(window.location.search);
+  const refParam = params.get('ref');
+  if (refParam) {
+    try {
+      localStorage.setItem('trustzone_ref_code', refParam.trim().toUpperCase());
+    } catch {
+      // ignore
+    }
+  }
   const pageParam = params.get('page');
   if (!pageParam) {
     if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
@@ -189,6 +197,7 @@ export default function App() {
           <HomePage
             settings={settings}
             plans={plans}
+            user={user}
             onNavigate={navigate}
             onSelectPlan={handleSelectPlan}
           />

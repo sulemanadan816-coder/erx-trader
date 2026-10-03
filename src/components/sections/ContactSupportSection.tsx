@@ -89,16 +89,16 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
   };
 
   return (
-    <section className="py-16 sm:py-20 bg-white border-t border-slate-200">
+    <section className="py-16 sm:py-24 bg-[#080c14] border-t border-[#cba352]/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mb-12">
-          <p className="text-xs font-semibold text-slate-500 mb-2">
+          <p className="text-xs font-semibold text-[#cba352] uppercase tracking-wider mb-2">
             Official Communication &amp; Payment Channels
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             Connect with {settings.brandName} Support
           </h2>
-          <p className="mt-3 text-base text-slate-600 leading-relaxed">
+          <p className="mt-3 text-base text-slate-300 leading-relaxed">
             Use our verified Telegram desk for direct support, join our official WhatsApp Channel for
             service announcements, or copy our official Easypaisa number for plan payments.
           </p>
@@ -107,19 +107,17 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
         {/* 3 Official Channel Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Card 1: Telegram Support */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col justify-between">
+          <div className="bg-[#0e1424] border border-[#cba352]/25 rounded-2xl p-6 sm:p-7 flex flex-col justify-between shadow-xl">
             <div>
-              <div className="text-xs text-slate-500 mb-2">
-                <span>Direct Support Desk</span>
-                <span aria-hidden="true"> · </span>
-                <span className="font-mono">{settings.telegramHandle}</span>
+              <div className="text-xs text-[#f8e7a1] mb-2 font-mono">
+                <span>Direct Support Desk · {settings.telegramHandle}</span>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Telegram Support</h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              <h3 className="text-lg font-bold text-white">Telegram Support</h3>
+              <p className="mt-2 text-sm text-slate-300 leading-relaxed">
                 Message our support team directly on Telegram for plan inquiries, onboarding
                 assistance, and payment verification follow-ups.
               </p>
-              <div className="mt-4 py-2 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs text-slate-700 break-all">
+              <div className="mt-4 py-2 px-3 bg-[#080c14] border border-slate-800 rounded-lg font-mono text-xs text-slate-300 break-all">
                 {settings.telegramSupportUrl}
               </div>
             </div>
@@ -128,7 +126,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                 href={settings.telegramSupportUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap"
+                className="w-full btn-gold py-3 px-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider"
               >
                 <span>CONTACT TELEGRAM SUPPORT</span>
                 <ExternalLink className="w-4 h-4 shrink-0" />
@@ -137,19 +135,17 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
           </div>
 
           {/* Card 2: WhatsApp Channel */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col justify-between">
+          <div className="bg-[#0e1424] border border-[#cba352]/25 rounded-2xl p-6 sm:p-7 flex flex-col justify-between shadow-xl">
             <div>
-              <div className="text-xs text-slate-500 mb-2">
-                <span>Official Broadcasts</span>
-                <span aria-hidden="true"> · </span>
-                <span>WhatsApp Updates</span>
+              <div className="text-xs text-emerald-400 mb-2 font-mono">
+                <span>Official Broadcasts · WhatsApp Updates</span>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">WhatsApp Channel</h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              <h3 className="text-lg font-bold text-white">WhatsApp Channel</h3>
+              <p className="mt-2 text-sm text-slate-300 leading-relaxed">
                 Follow the official {settings.brandName} WhatsApp Channel to receive timely updates,
                 schedule notices, and important service announcements.
               </p>
-              <div className="mt-4 py-2 px-3 bg-white border border-slate-200 rounded-lg font-mono text-xs text-slate-700 truncate">
+              <div className="mt-4 py-2 px-3 bg-[#080c14] border border-slate-800 rounded-lg font-mono text-xs text-slate-300 truncate">
                 {settings.whatsappChannelUrl}
               </div>
             </div>
@@ -158,7 +154,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                 href={settings.whatsappChannelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors whitespace-nowrap"
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-xs font-bold uppercase tracking-wider text-white bg-emerald-700 hover:bg-emerald-600 rounded-xl transition-colors whitespace-nowrap"
               >
                 <span>JOIN WHATSAPP CHANNEL</span>
                 <ExternalLink className="w-4 h-4 shrink-0" />
@@ -167,21 +163,19 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
           </div>
 
           {/* Card 3: Easypaisa Payment Details */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col justify-between">
+          <div className="bg-[#0e1424] border border-[#cba352]/25 rounded-2xl p-6 sm:p-7 flex flex-col justify-between shadow-xl">
             <div>
-              <div className="text-xs text-slate-500 mb-2">
-                <span>Official Payment Account</span>
-                <span aria-hidden="true"> · </span>
-                <span>Manual Verification</span>
+              <div className="text-xs text-[#cba352] mb-2 font-mono">
+                <span>Official Payment Account · Manual Verification</span>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Easypaisa Account</h3>
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+              <h3 className="text-lg font-bold text-white">Easypaisa Account</h3>
+              <p className="mt-2 text-sm text-slate-300 leading-relaxed">
                 Use the official Easypaisa number below for plan payments. After transfer, submit
                 your Transaction ID in the Client Portal for admin verification.
               </p>
-              <div className="mt-4 py-2.5 px-3.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between">
-                <span className="text-xs text-slate-500">Easypaisa</span>
-                <span className="font-mono tabular-nums text-base font-bold text-slate-900 tracking-wider">
+              <div className="mt-4 py-2.5 px-3.5 bg-[#080c14] border border-slate-800 rounded-lg flex items-center justify-between">
+                <span className="text-xs text-slate-400">Easypaisa</span>
+                <span className="font-mono tabular-nums text-base font-bold text-[#f8e7a1] tracking-wider">
                   {settings.easypaisaNumber}
                 </span>
               </div>
@@ -190,11 +184,11 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
               <button
                 type="button"
                 onClick={handleCopyEasypaisa}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                className="w-full btn-gold-ghost py-3 px-4 inline-flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider cursor-pointer"
               >
                 {copied ? (
                   <>
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>COPIED: {settings.easypaisaNumber}</span>
                   </>
                 ) : (
@@ -210,24 +204,24 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
 
         {/* Optional Direct Support Inquiry Form */}
         {showInquiryForm && (
-          <div className="mt-12 bg-slate-50 border border-slate-200 rounded-xl p-6 sm:p-8">
+          <div className="mt-12 bg-[#0e1424] border border-[#cba352]/25 rounded-2xl p-6 sm:p-8 shadow-xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               <div className="lg:col-span-5 space-y-3">
-                <h3 className="text-lg font-semibold text-slate-900">
+                <h3 className="text-xl font-bold text-white">
                   Send a Support or Onboarding Message
                 </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className="text-sm text-slate-300 leading-relaxed">
                   Have a question regarding plan selection, account access, or payment submission?
                   Submit a ticket below and our administrator will review it in the support desk.
                 </p>
-                <div className="pt-2 space-y-2 text-xs text-slate-500">
+                <div className="pt-2 space-y-2 text-xs text-slate-400">
                   <p>
                     For the fastest response, reach out directly via Telegram:{' '}
                     <a
                       href={settings.telegramSupportUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-semibold text-slate-900 underline"
+                      className="font-semibold text-[#cba352] hover:underline"
                     >
                       {settings.telegramHandle}
                     </a>
@@ -239,7 +233,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                 {formError && (
                   <div
                     role="alert"
-                    className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-xs font-medium text-red-800"
+                    className="p-3.5 rounded-lg bg-red-950/70 border border-red-700/60 text-xs font-medium text-red-200"
                   >
                     {formError}
                   </div>
@@ -247,7 +241,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                 {formSuccess && (
                   <div
                     role="status"
-                    className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800"
+                    className="p-3.5 rounded-lg bg-emerald-950/70 border border-emerald-700/60 text-xs font-medium text-emerald-200"
                   >
                     {formSuccess}
                   </div>
@@ -257,7 +251,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                   <div>
                     <label
                       htmlFor="inquiry-name"
-                      className="block text-xs font-semibold text-slate-700 mb-1.5"
+                      className="block text-xs font-semibold text-slate-300 mb-1.5"
                     >
                       Full Name
                     </label>
@@ -268,13 +262,13 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter your name"
                       required
-                      className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352]"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="inquiry-contact"
-                      className="block text-xs font-semibold text-slate-700 mb-1.5"
+                      className="block text-xs font-semibold text-slate-300 mb-1.5"
                     >
                       Telegram Username / Phone / Email
                     </label>
@@ -285,7 +279,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                       onChange={(e) => setContactInfo(e.target.value)}
                       placeholder="@username or 03XX-XXXXXXX"
                       required
-                      className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352]"
                     />
                   </div>
                 </div>
@@ -293,7 +287,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                 <div>
                   <label
                     htmlFor="inquiry-subject"
-                    className="block text-xs font-semibold text-slate-700 mb-1.5"
+                    className="block text-xs font-semibold text-slate-300 mb-1.5"
                   >
                     Subject
                   </label>
@@ -304,14 +298,14 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="Plan details, onboarding, or payment verification question"
                     required
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352]"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="inquiry-message"
-                    className="block text-xs font-semibold text-slate-700 mb-1.5"
+                    className="block text-xs font-semibold text-slate-300 mb-1.5"
                   >
                     Message
                   </label>
@@ -322,7 +316,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Write your question or request clearly..."
                     required
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352]"
                   />
                 </div>
 
@@ -330,7 +324,7 @@ export const ContactSupportSection: React.FC<ContactSupportSectionProps> = ({
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="inline-flex items-center justify-center gap-2 py-2.5 px-5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-60 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    className="btn-gold py-2.5 px-6 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-60"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>{submitting ? 'Submitting Inquiry...' : 'Submit Support Inquiry'}</span>

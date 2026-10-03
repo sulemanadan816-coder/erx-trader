@@ -16,13 +16,16 @@ import {
   Send,
   Trash2,
   User,
+  Users,
   Wallet,
+  Gift,
 } from 'lucide-react';
 import {
   DashboardTab,
   LedgerEntry,
   PageRoute,
   PaymentTransaction,
+  ReferralStatsResponse,
   SavedPayoutAccount,
   ServiceOrder,
   ServicePlan,
@@ -37,6 +40,7 @@ import {
 } from '../../types';
 import { parseNumericPkr } from '../../server/ledgerUtilsClient';
 import { apiRequest } from '../../utils/api';
+import { ClientReferralsTab } from './ClientReferralsTab';
 
 interface ClientDashboardProps {
   user: UserAccount;
@@ -54,6 +58,7 @@ const SIDEBAR_ITEMS: { id: DashboardTab; label: string; icon: React.FC<{ classNa
     { id: 'wallet', label: 'Wallet & Ledger', icon: Wallet },
     { id: 'transactions', label: 'Transactions', icon: FileText },
     { id: 'plans', label: 'Plans / Services', icon: Package },
+    { id: 'referrals', label: 'Referrals & Team', icon: Users },
     { id: 'withdraw', label: 'Withdraw', icon: ArrowUpRight },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'support', label: 'Support', icon: HelpCircle },
@@ -93,6 +98,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [withdrawalMethods, setWithdrawalMethods] = useState<WithdrawalMethodConfig[]>([]);
+  const [referralStats, setReferralStats] = useState<ReferralStatsResponse | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -163,6 +169,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         setLedgerEntries(data.ledgerEntries || []);
         setOrders(data.orders || []);
         setNotifications(data.notifications || []);
+        if (data.referrals) {
+          setReferralStats(data.referrals);
+        }
         const methods: WithdrawalMethodConfig[] = data.withdrawalMethods || [];
         setWithdrawalMethods(methods);
         if (methods.length > 0 && !wdMethodId) {
@@ -176,6 +185,19 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       setLoading(false);
     }
   }, [token, wdMethodId, newAccMethodId]);
+
+  const fetchReferralStats = useCallback(async () => {
+    try {
+      const res = await apiRequest<ReferralStatsResponse>('/api/user/referrals', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok && res.data) {
+        setReferralStats(res.data);
+      }
+    } catch {
+      // non-fatal
+    }
+  }, [token]);
 
   useEffect(() => {
     fetchDashboardSummary();
@@ -728,6 +750,34 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                       <span>Contact Support</span>
                     </button>
                   </div>
+                </div>
+
+                {/* Affiliate Referral Program Banner */}
+                <div className="bg-gradient-to-r from-[#0d1424] via-[#162038] to-[#0d1424] border border-[#cba352]/40 rounded-xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-[#cba352]/20 border border-[#cba352]/40 flex items-center justify-center shrink-0">
+                      <Gift className="w-5 h-5 text-[#f8e7a1]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">Affiliate Referral Program</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#cba352]/20 text-[#f8e7a1]">
+                          13% + 2% Commission
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Your Code: <strong className="font-mono text-[#f8e7a1]">{user.referralCode || referralStats?.referralCode || `TZ-${user.id.slice(-6).toUpperCase()}`}</strong> &bull; Total Earned: <span className="font-mono text-emerald-400 font-bold">Rs. {(referralStats?.totalEarnings || user.totalReferralEarnings || 0).toLocaleString()}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('referrals')}
+                    className="self-start sm:self-auto py-2 px-4 text-xs font-bold bg-[#cba352] hover:bg-[#dfb867] text-[#0b0f19] rounded-lg cursor-pointer whitespace-nowrap transition-colors flex items-center gap-1.5"
+                  >
+                    <span>Open Referral Hub</span>
+                    <span>&rarr;</span>
+                  </button>
                 </div>
 
                 {/* Active Service Plan & Recent Orders */}
@@ -1436,6 +1486,21 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* ==================== TAB: REFERRALS & AFFILIATE TEAM ==================== */}
+            {activeTab === 'referrals' && (
+              <ClientReferralsTab
+                user={user}
+                token={token}
+                settings={settings}
+                plans={plans}
+                stats={referralStats}
+                onRefresh={() => {
+                  fetchDashboardSummary();
+                  fetchReferralStats();
+                }}
+              />
             )}
 
             {/* ==================== TAB 5: DEDICATED WITHDRAWAL PAGE ==================== */}

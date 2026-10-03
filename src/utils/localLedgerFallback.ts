@@ -7,6 +7,7 @@ import type {
   LedgerEntry,
   LoginLogEntry,
   PaymentTransaction,
+  ReferralCommissionLog,
   SavedPayoutAccount,
   ServiceOrder,
   ServicePlan,
@@ -42,6 +43,7 @@ interface LocalDatabaseSchema {
   loginLogs: LoginLogEntry[];
   inquiries: SupportInquiry[];
   plans: ServicePlan[];
+  referralLogs: ReferralCommissionLog[];
   sessions: Record<string, string>; // token -> userId
 }
 
@@ -238,6 +240,7 @@ function createInitialLocalDb(): LocalDatabaseSchema {
     ],
     inquiries: [],
     plans: JSON.parse(JSON.stringify(DEFAULT_PLANS)),
+    referralLogs: [],
     sessions: {},
   };
 }
@@ -276,6 +279,14 @@ function loadDb(): LocalDatabaseSchema {
       Array.isArray(parsed.loginLogs) && parsed.loginLogs.length > 0
         ? parsed.loginLogs
         : init.loginLogs;
+    if (
+      !Array.isArray(parsed.plans) ||
+      parsed.plans.length === 0 ||
+      parsed.plans.some((p) => p.id === 'plan-1200' || p.id === 'plan-standard')
+    ) {
+      parsed.plans = JSON.parse(JSON.stringify(DEFAULT_PLANS));
+    }
+    parsed.referralLogs = Array.isArray(parsed.referralLogs) ? parsed.referralLogs : [];
     return parsed;
   } catch {
     return createInitialLocalDb();

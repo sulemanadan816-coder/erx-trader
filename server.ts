@@ -52,6 +52,7 @@ const RegisterSchema = z.object({
     .min(4, 'Email or phone number must be at least 4 characters')
     .max(100),
   password: z.string().min(6, 'Password must be at least 6 characters').max(100),
+  referralCode: z.string().max(50).optional(),
 });
 
 const LoginSchema = z.object({
@@ -224,6 +225,10 @@ function formatSafeUser(u: StoredUserRecord, totalInvested?: number) {
     lastLoginIp: u.lastLoginIp || null,
     loginCount: u.loginCount || 0,
     totalInvested: typeof totalInvested === 'number' ? totalInvested : (u.totalInvested || 0),
+    referralCode: u.referralCode || `TZ-${u.id.slice(-6).toUpperCase()}`,
+    referredBy: u.referredBy || null,
+    referralCount: u.referralCount || 0,
+    totalReferralEarnings: u.totalReferralEarnings || 0,
   };
 }
 
@@ -277,6 +282,35 @@ async function startServer() {
         }
 
         const now = new Date().toISOString();
+
+        const refCodeProvided = parsed.data.referralCode?.trim();
+        let referrerId: string | null = null;
+        if (refCodeProvided) {
+          const cleanRef = refCodeProvided.toUpperCase();
+          const referrer = db.users.find(
+            (u) =>
+              (u.referralCode && u.referralCode.toUpperCase() === cleanRef) ||
+              u.id.toUpperCase() === cleanRef ||
+              u.identifier.toUpperCase() === cleanRef ||
+              (cleanRef === 'TZ-CLIENT1' && u.id === 'usr-client-1') ||
+              (cleanRef === 'CLIENT1' && u.id === 'usr-client-1')
+          );
+          if (referrer) {
+            referrerId = referrer.id;
+            referrer.referralCount = (referrer.referralCount || 0) + 1;
+            db.notifications.push({
+              id: `NOTIF-${Date.now()}-ref`,
+              userId: referrer.id,
+              title: '🎉 New Team Referral Joined!',
+              message: `${sanitizeText(parsed.data.name)} registered using your referral link! You will earn 13% commission on their plan activations.`,
+              type: 'SUCCESS',
+              read: false,
+              createdAt: now,
+            });
+          }
+        }
+
+        const uniqueRefCode = `TZ${Math.floor(100000 + Math.random() * 900000)}`;
         const newUser: StoredUserRecord = {
           id: `usr-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
           name: sanitizeText(parsed.data.name),
@@ -291,6 +325,10 @@ async function startServer() {
           lastLoginIp: String(req.ip || req.socket.remoteAddress || '127.0.0.1'),
           loginCount: 1,
           totalInvested: 0,
+          referralCode: uniqueRefCode,
+          referredBy: referrerId,
+          referralCount: 0,
+          totalReferralEarnings: 0,
         };
 
         db.users.push(newUser);
@@ -300,7 +338,7 @@ async function startServer() {
           userId: newUser.id,
           title: 'Account Created Successfully',
           message:
-            'Welcome to REX TRADERS. Your database-backed wallet has been initialized. Submit an Easypaisa deposit or select a service plan to get started.',
+            'Welcome to TrustZone. Your wallet has been initialized. You can now invest in high-yield daily plans and earn 13% + 2% referral commissions!',
           type: 'INFO',
           read: false,
           createdAt: now,
@@ -420,6 +458,8 @@ async function startServer() {
       .filter((n) => n.userId === userId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    const referrals = ledger.getReferralStats(userId);
+
     res.json({
       user: formatSafeUser(req.user!),
       wallet,
@@ -429,8 +469,14 @@ async function startServer() {
       ledgerEntries,
       orders,
       notifications,
+      referrals,
       withdrawalMethods: db.withdrawalMethods.filter((m) => m.active),
     });
+  });
+
+  app.get('/api/user/referrals', requireAuth, (req: AuthenticatedRequest, res) => {
+    const stats = ledger.getReferralStats(req.user!.id);
+    res.json(stats);
   });
 
   app.get('/api/transactions/my', requireAuth, (req: AuthenticatedRequest, res) => {
@@ -716,6 +762,9 @@ async function startServer() {
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       ),
       inquiries: [...db.inquiries].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+      referralLogs: [...(db.referralLogs || [])].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
     });

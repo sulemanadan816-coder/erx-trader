@@ -19,6 +19,11 @@ import {
   Upload,
   User,
   Users,
+  Share2,
+  Gift,
+  Sparkles,
+  TrendingUp,
+  Award,
 } from 'lucide-react';
 import {
   AuditLogEntry,
@@ -28,6 +33,7 @@ import {
   LoginLogEntry,
   PageRoute,
   PaymentTransaction,
+  ReferralCommissionLog,
   ServicePlan,
   SiteSettings,
   SupportInquiry,
@@ -54,8 +60,9 @@ type AdminTab =
   | 'methods'
   | 'audit'
   | 'plans'
-  | 'inquiries'
   | 'users'
+  | 'referrals'
+  | 'inquiries'
   | 'settings';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -80,6 +87,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [auditLogs, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [inquiries, setInquiries] = useState<SupportInquiry[]>([]);
   const [loginLogs, setLoginLogs] = useState<LoginLogEntry[]>([]);
+  const [referralLogs, setReferralLogs] = useState<ReferralCommissionLog[]>([]);
+  const [refLogSearch, setRefLogSearch] = useState('');
+  const [refTierFilter, setRefTierFilter] = useState<'ALL' | 1 | 2>('ALL');
 
   // --- Users & Login Surveillance State ---
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -161,6 +171,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setAuditLog(data.auditLogs || []);
         setInquiries(data.inquiries || []);
         setLoginLogs(data.loginLogs || []);
+        setReferralLogs(data.referralLogs || []);
         if (data.settings) {
           setLogoUrlInput(data.settings.logoUrl || '');
           setHeroHeadlineInput(data.settings.heroHeadline || '');
@@ -658,8 +669,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 id: 'users',
                 label: `7. Logins & Invested (${users.length} Users · ${loginLogs.length} Logins)`,
               },
-              { id: 'inquiries', label: '8. Support' },
-              { id: 'settings', label: '9. Settings' },
+              {
+                id: 'referrals',
+                label: `8. Referrals & Affiliates (${referralLogs.length} Payouts)`,
+              },
+              { id: 'inquiries', label: '9. Support' },
+              { id: 'settings', label: '10. Settings' },
             ] as { id: AdminTab; label: string }[]
           ).map((tab) => (
             <button
@@ -2120,6 +2135,331 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ==================== TAB 8: REFERRALS & AFFILIATE NETWORK ==================== */}
+        {activeTab === 'referrals' && (
+          <div className="space-y-6">
+            {/* Header & KPI Summary */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-amber-600" />
+                    <span>Affiliate &amp; Multi-Tier Referral Network</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Complete surveillance of Level 1 (13%) and Level 2 (2%) commissions distributed across client accounts
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchAdminOverview}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500">Total Commissions Distributed</div>
+                  <div className="mt-1 font-mono text-2xl font-bold text-emerald-700">
+                    Rs.{' '}
+                    {referralLogs
+                      .reduce((sum, l) => sum + l.commissionAmount, 0)
+                      .toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {referralLogs.length} total payout transactions
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500">Level 1 Direct Payouts (13%)</div>
+                  <div className="mt-1 font-mono text-2xl font-bold text-amber-700">
+                    Rs.{' '}
+                    {referralLogs
+                      .filter((l) => l.level === 1)
+                      .reduce((sum, l) => sum + l.commissionAmount, 0)
+                      .toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {referralLogs.filter((l) => l.level === 1).length} direct activations
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500">Level 2 Team Payouts (2%)</div>
+                  <div className="mt-1 font-mono text-2xl font-bold text-sky-700">
+                    Rs.{' '}
+                    {referralLogs
+                      .filter((l) => l.level === 2)
+                      .reduce((sum, l) => sum + l.commissionAmount, 0)
+                      .toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {referralLogs.filter((l) => l.level === 2).length} secondary activations
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500">Active Affiliates</div>
+                  <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
+                    {
+                      users.filter(
+                        (u) =>
+                          (u.referralCount && u.referralCount > 0) ||
+                          (u.totalReferralEarnings && u.totalReferralEarnings > 0)
+                      ).length
+                    }{' '}
+                    <span className="text-sm font-normal text-slate-500">users</span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    Clients with active referrals
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Affiliates Leaderboard */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+              <div className="p-5 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-amber-600" />
+                  <span>Top Affiliates &amp; Promoters</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Clients bringing the highest referral volume to the platform
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50 text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">User</th>
+                      <th className="py-3 px-4">Role</th>
+                      <th className="py-3 px-4">Referral Code</th>
+                      <th className="py-3 px-4 text-center">Invited Team</th>
+                      <th className="py-3 px-4 text-right">Commissions Earned</th>
+                      <th className="py-3 px-4 text-right">Wallet Available</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {[...users]
+                      .sort(
+                        (a, b) =>
+                          (b.totalReferralEarnings || 0) - (a.totalReferralEarnings || 0) ||
+                          (b.referralCount || 0) - (a.referralCount || 0)
+                      )
+                      .slice(0, 10)
+                      .map((u) => {
+                        const uWal = wallets.find((w) => w.userId === u.id);
+                        return (
+                          <tr key={u.id} className="hover:bg-slate-50">
+                            <td className="py-3 px-4 font-medium text-slate-900">
+                              <div>{u.name}</div>
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                {u.identifier}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  u.role === 'admin'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {u.role}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 font-mono font-semibold text-amber-700">
+                              {u.referralCode || `TZ-${u.id.slice(-6).toUpperCase()}`}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono">
+                              {u.referralCount || 0} members
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                              Rs. {(u.totalReferralEarnings || 0).toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono">
+                              Rs. {(uWal?.availableBalance || 0).toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAdjUserId(u.id);
+                                  setActiveTab('wallets');
+                                }}
+                                className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded cursor-pointer transition-colors"
+                              >
+                                Adjust Balance
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Complete Referral Logs Table */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+              <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <span>Referral Commission Audit Log ({referralLogs.length})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Immutable history of auto-credited referral commissions
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setRefTierFilter('ALL')}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                        refTierFilter === 'ALL'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefTierFilter(1)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                        refTierFilter === 1
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Level 1 (13%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefTierFilter(2)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                        refTierFilter === 2
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Level 2 (2%)
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={refLogSearch}
+                    onChange={(e) => setRefLogSearch(e.target.value)}
+                    placeholder="Search logs..."
+                    className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              {referralLogs.length === 0 ? (
+                <div className="py-12 px-4 text-center text-xs text-slate-500">
+                  No referral commission transactions recorded yet. They will appear automatically when approved deposits or plan purchases occur from referred customers.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Date &amp; Time</th>
+                        <th className="py-3 px-4">Beneficiary Referrer</th>
+                        <th className="py-3 px-4">From Member</th>
+                        <th className="py-3 px-4">Tier</th>
+                        <th className="py-3 px-4">Package</th>
+                        <th className="py-3 px-4 text-right">Plan Amount</th>
+                        <th className="py-3 px-4 text-right">Commission Credited</th>
+                        <th className="py-3 px-4 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {referralLogs
+                        .filter((log) => {
+                          if (refTierFilter !== 'ALL' && log.level !== refTierFilter) {
+                            return false;
+                          }
+                          if (!refLogSearch.trim()) return true;
+                          const q = refLogSearch.toLowerCase();
+                          return (
+                            log.referredUserName.toLowerCase().includes(q) ||
+                            log.planName.toLowerCase().includes(q) ||
+                            log.referrerId.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((log) => {
+                          const referrerUser = users.find((u) => u.id === log.referrerId);
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-50">
+                              <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
+                                {new Date(log.createdAt).toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 font-medium text-slate-900">
+                                <div>{referrerUser ? referrerUser.name : log.referrerId}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  {referrerUser?.identifier || log.referrerId}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-slate-800">
+                                <div>{log.referredUserName}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">
+                                  ID: {log.referredUserId}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                {log.level === 1 ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                    L1 · 13%
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                    L2 · 2%
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-medium text-slate-800">
+                                {log.planName}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono">
+                                Rs. {log.sourceAmount.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                                +Rs. {log.commissionAmount.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Credited
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Check, Copy, ExternalLink } from 'lucide-react';
+import { Check, Copy, ExternalLink, Zap } from 'lucide-react';
 import { PageRoute, ServicePlan, SiteSettings } from '../../types';
 import { PlansSection } from '../sections/PlansSection';
+import { InvestmentCalculator } from '../sections/InvestmentCalculator';
+import { ReferralSection } from '../sections/ReferralSection';
 
 interface PlansPageProps {
   settings: SiteSettings;
@@ -36,27 +38,27 @@ export const PlansPage: React.FC<PlansPageProps> = ({
   };
 
   return (
-    <div>
-      <section className="py-12 sm:py-16 bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="bg-[#080c14] text-slate-100 min-h-screen">
+      {/* Plans Page Header */}
+      <section className="py-14 sm:py-20 bg-[#0b101d] border-b border-[#cba352]/20 relative overflow-hidden">
+        <div className="tz-stage-blob-1" aria-hidden="true" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl">
-            <div className="text-xs text-slate-500 mb-2">
-              <span>Plans &amp; Packages</span>
-              <span aria-hidden="true"> · </span>
-              <span>{settings.brandName}</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#cba352]/15 border border-[#cba352]/30 text-[#f8e7a1] text-xs font-semibold uppercase tracking-wider mb-3">
+              <Zap className="w-3.5 h-3.5 text-[#cba352]" />
+              <span>Investment Packages</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-              Structured Service Plans
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+              High-Yield Daily Investment Plans
             </h1>
-            <p className="mt-4 text-base text-slate-600 leading-relaxed">
-              Review our available service packages below. When you select a plan, you can submit
-              your Easypaisa payment Transaction ID in the Client Portal for manual administrator
-              verification, or coordinate directly with our Telegram support desk.
+            <p className="mt-4 text-base sm:text-lg text-slate-300 leading-relaxed">
+              Explore TrustZone's 12 structured investment packages with 20% guaranteed daily returns for 90 days. Select any plan to activate it via Easypaisa in the Client Portal.
             </p>
           </div>
         </div>
       </section>
 
+      {/* 12 Plans Grid */}
       <PlansSection
         plans={plans}
         settings={settings}
@@ -64,79 +66,62 @@ export const PlansPage: React.FC<PlansPageProps> = ({
         onNavigate={onNavigate}
       />
 
+      {/* Interactive Calculator */}
+      <InvestmentCalculator plans={plans} onSelectPlan={onSelectPlan} />
+
+      {/* Multi-Tier Referral Program */}
+      <ReferralSection user={null} onNavigateLogin={() => onNavigate('login')} />
+
       {/* Payment & Verification Information Banner */}
-      <section className="py-16 bg-white border-t border-slate-200">
+      <section className="py-16 bg-[#090d16] border-t border-[#cba352]/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 sm:p-8">
+          <div className="bg-[#0e1424] border border-[#cba352]/30 rounded-2xl p-6 sm:p-8 shadow-xl">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <div className="lg:col-span-7 space-y-3">
-                <div className="text-xs text-slate-500">
-                  <span>Payment Instructions</span>
-                  <span aria-hidden="true"> · </span>
-                  <span>Manual Verification Policy</span>
+                <div className="text-xs font-bold text-[#cba352] uppercase tracking-wider">
+                  Payment Instructions · Manual Approval Policy
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">
                   Official Easypaisa Payment Procedure
                 </h2>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  1. Confirm your desired plan fee with support or select your package above.
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  1. Select your desired package from the 12 investment tiers above.
                   <br />
-                  2. Transfer the amount to the official {settings.brandName} Easypaisa number:{' '}
-                  <span className="font-mono tabular-nums font-bold text-slate-900">
+                  2. Transfer the exact plan amount to the official TrustZone Easypaisa account:{' '}
+                  <strong className="font-mono text-[#f8e7a1]">
                     {settings.easypaisaNumber}
-                  </span>
+                  </strong>
                   .<br />
-                  3. Sign in to the Client Portal and submit your Transaction ID (TID) and sender
-                  number. Every submission is recorded as <strong>Pending</strong> until manually
-                  verified by an administrator.
+                  3. Log in to the Client Portal and submit your Transaction ID (TID). Once our administrator approves the payment, your wallet is credited and you can also request withdrawals!
                 </p>
               </div>
 
               <div className="lg:col-span-5 flex flex-col gap-3">
-                <div className="p-4 bg-white border border-slate-200 rounded-lg flex items-center justify-between">
+                <div className="p-4 bg-[#080c14] border border-slate-800 rounded-xl flex items-center justify-between">
                   <div>
-                    <div className="text-xs text-slate-500">Official Easypaisa Number</div>
-                    <div className="font-mono tabular-nums text-lg font-bold text-slate-900">
+                    <div className="text-xs text-slate-400">Official Easypaisa Number</div>
+                    <div className="font-mono text-lg font-bold text-[#f8e7a1]">
                       {settings.easypaisaNumber}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleCopyEasypaisa}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    className="btn-gold px-3.5 py-1.5 text-xs font-bold cursor-pointer"
                   >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Number</span>
-                      </>
-                    )}
+                    {copied ? 'Copied!' : 'Copy Number'}
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('dashboard')}
-                    className="py-3 px-4 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg text-center cursor-pointer whitespace-nowrap"
-                  >
-                    Submit Payment in Portal
-                  </button>
-                  <a
-                    href={settings.telegramSupportUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 py-3 px-4 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg whitespace-nowrap"
-                  >
-                    <span>Telegram Support</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
+                <a
+                  href={settings.telegramSupportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-3 bg-[#080c14] border border-slate-800 hover:border-[#cba352]/50 rounded-xl flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors"
+                >
+                  <span>Telegram Support ({settings.telegramHandle})</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                </a>
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Lock, Mail, User, Zap, ArrowRight, Gift, CheckCircle2 } from 'lucide-react';
 import { PageRoute, SiteSettings, UserAccount } from '../../types';
 import { apiRequest } from '../../utils/api';
 
@@ -18,10 +19,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [hasRefCodeApplied, setHasRefCodeApplied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isLogin = mode === 'login';
+
+  useEffect(() => {
+    try {
+      const storedRef = localStorage.getItem('trustzone_ref_code');
+      if (storedRef) {
+        setReferralCode(storedRef);
+        setHasRefCodeApplied(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +60,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
       const payload = isLogin
         ? { identifier: identifier.trim(), password }
-        : { name: name.trim(), identifier: identifier.trim(), password };
+        : {
+            name: name.trim(),
+            identifier: identifier.trim(),
+            password,
+            referralCode: referralCode.trim() || undefined,
+          };
 
       const res = await apiRequest<{ token: string; user: UserAccount; error?: string }>(
         endpoint,
@@ -56,8 +76,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       );
 
       if (!res.ok || !res.data?.token || !res.data?.user) {
-        setError(res.error || 'Authentication failed. Please check your details.');
+        setError(res.error || 'Authentication failed. Please check your credentials.');
       } else {
+        try {
+          localStorage.removeItem('trustzone_ref_code');
+        } catch {
+          // ignore
+        }
         onAuthSuccess(res.data.token, res.data.user);
       }
     } finally {
@@ -66,36 +91,41 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   };
 
   return (
-    <section className="py-14 sm:py-20 bg-slate-50">
-      <div className="max-w-md mx-auto px-4 sm:px-6">
-        <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8">
-          <div className="text-xs text-slate-500 mb-2">
-            <span>{settings.brandName}</span>
-            <span aria-hidden="true"> · </span>
-            <span>Official Client Portal</span>
+    <section className="py-16 sm:py-24 bg-[#080c14] min-h-[calc(100vh-4.5rem)] flex items-center justify-center relative overflow-hidden">
+      {/* Ambient background glows */}
+      <div className="tz-stage-blob-1" aria-hidden="true" />
+      <div className="tz-stage-blob-2" aria-hidden="true" />
+
+      <div className="w-full max-w-md mx-auto px-4 sm:px-6 relative z-10">
+        <div className="bg-[#0e1424]/90 backdrop-blur-xl border border-[#cba352]/30 rounded-3xl p-7 sm:p-9 shadow-2xl">
+          {/* Header branding */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#cba352]/15 border border-[#cba352]/30 text-[#f8e7a1] text-xs font-semibold uppercase tracking-wider mb-3">
+              <Zap className="w-3.5 h-3.5 text-[#cba352] fill-[#cba352]" />
+              <span>{settings.brandName} Portal</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              {isLogin ? 'Welcome Back' : 'Create an Account'}
+            </h1>
+            <p className="mt-2 text-xs text-slate-300 leading-relaxed">
+              {isLogin
+                ? 'Sign in to access your investment dashboard, earnings, and fast withdrawals.'
+                : 'Join TrustZone today to invest in guaranteed daily yield plans.'}
+            </p>
           </div>
 
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            {isLogin ? 'Sign In to Your Account' : 'Create a Client Account'}
-          </h1>
-          <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-            {isLogin
-              ? 'Access your account dashboard to manage your service plan, wallet balance, and withdrawal requests.'
-              : 'Register an account to select a REX TRADERS plan and submit payment references for verification.'}
-          </p>
-
           {/* Mode Switcher */}
-          <div className="mt-5 grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg">
+          <div className="grid grid-cols-2 gap-1 p-1 bg-[#080c14] border border-slate-800 rounded-xl mb-6">
             <button
               type="button"
               onClick={() => {
                 setError(null);
                 onNavigate('login');
               }}
-              className={`py-2 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 isLogin
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-gradient-to-r from-[#f8e7a1] via-[#cba352] to-[#b88d37] text-[#0b0f19] shadow-sm'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               Sign In
@@ -106,21 +136,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 setError(null);
                 onNavigate('register');
               }}
-              className={`py-2 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 !isLogin
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-gradient-to-r from-[#f8e7a1] via-[#cba352] to-[#b88d37] text-[#0b0f19] shadow-sm'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
-              Create Account
+              Register
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {error && (
               <div
                 role="alert"
-                className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs font-medium text-red-800"
+                className="p-3.5 rounded-xl bg-red-950/70 border border-red-700/60 text-xs font-medium text-red-200"
               >
                 {error}
               </div>
@@ -130,73 +160,127 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <div>
                 <label
                   htmlFor="auth-name"
-                  className="block text-xs font-semibold text-slate-700 mb-1.5"
+                  className="block text-xs font-semibold text-slate-300 mb-1.5"
                 >
                   Full Name
                 </label>
-                <input
-                  id="auth-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                    <User className="w-4 h-4" />
+                  </span>
+                  <input
+                    id="auth-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    required
+                    className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352] focus:ring-1 focus:ring-[#cba352]"
+                  />
+                </div>
               </div>
             )}
 
             <div>
               <label
                 htmlFor="auth-identifier"
-                className="block text-xs font-semibold text-slate-700 mb-1.5"
+                className="block text-xs font-semibold text-slate-300 mb-1.5"
               >
-                Email Address or Mobile Number
+                Email Address or Phone Number
               </label>
-              <input
-                id="auth-identifier"
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="you@example.com or 03XX-XXXXXXX"
-                required
-                className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
-              />
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                  <Mail className="w-4 h-4" />
+                </span>
+                <input
+                  id="auth-identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="you@example.com or 03XX-XXXXXXX"
+                  required
+                  className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352] focus:ring-1 focus:ring-[#cba352]"
+                />
+              </div>
             </div>
 
             <div>
               <label
                 htmlFor="auth-password"
-                className="block text-xs font-semibold text-slate-700 mb-1.5"
+                className="block text-xs font-semibold text-slate-300 mb-1.5"
               >
                 Password
               </label>
-              <input
-                id="auth-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimum 6 characters"
-                required
-                className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
-              />
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  id="auth-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimum 6 characters"
+                  required
+                  className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#080c14] border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:border-[#cba352] focus:ring-1 focus:ring-[#cba352]"
+                />
+              </div>
             </div>
+
+            {!isLogin && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="auth-refcode"
+                    className="block text-xs font-semibold text-slate-300"
+                  >
+                    Referral Code (Optional)
+                  </label>
+                  {hasRefCodeApplied && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Invitation Applied
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#cba352]">
+                    <Gift className="w-4 h-4" />
+                  </span>
+                  <input
+                    id="auth-refcode"
+                    type="text"
+                    value={referralCode}
+                    onChange={(e) => {
+                      setReferralCode(e.target.value.toUpperCase());
+                      setHasRefCodeApplied(Boolean(e.target.value.trim()));
+                    }}
+                    placeholder="e.g. TZ123456 or leave blank"
+                    className="w-full pl-10 pr-3.5 py-3 text-sm bg-[#080c14] border border-slate-700 uppercase font-mono rounded-xl text-white placeholder:text-slate-500 placeholder:normal-case placeholder:font-sans focus:outline-none focus:border-[#cba352] focus:ring-1 focus:ring-[#cba352]"
+                  />
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
+              className="w-full btn-gold py-3.5 px-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-lg shadow-amber-500/20 mt-2"
             >
-              {loading
-                ? 'Authenticating...'
-                : isLogin
-                ? 'Sign In to Portal'
-                : 'Create Client Account'}
+              <span>{loading ? 'Authenticating...' : isLogin ? 'Sign In to Portal' : 'Create Account'}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {/* Quick Demo Credentials Reminder */}
+          <div className="mt-6 pt-5 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
+            <div className="flex items-center justify-between">
+              <span>Admin: <strong className="font-mono text-slate-200">abubakararain104@gmail.com</strong></span>
+              <span className="text-amber-400 font-medium">Administrator</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   );
 };
-

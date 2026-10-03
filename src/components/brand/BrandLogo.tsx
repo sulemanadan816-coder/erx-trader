@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Zap } from 'lucide-react';
 import { SITE_CONFIG } from '../../config/siteConfig';
 
 interface BrandLogoProps {
@@ -9,15 +10,13 @@ interface BrandLogoProps {
 }
 
 /**
- * REX TRADERS Official Logo Component
- * - Displays the official REX TRADERS logo (/rex-traders-logo.svg or uploaded custom logo)
- * - Preserves aspect ratio (`object-contain`, never stretches)
- * - Falls back to clean monogram if image fails to load
+ * TrustZone Official Brand Logo Component
+ * - Displays the TrustZone emblem with golden lightning mark and luxury typography
+ * - Preserves uploaded image if specified, otherwise renders TrustZone signature lockup
  */
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   logoUrl = SITE_CONFIG.logoUrl,
   brandName = SITE_CONFIG.brandName,
-  variant = 'dark',
 }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -32,13 +31,9 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           alt={SITE_CONFIG.logoAlt}
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
-          className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg object-contain shrink-0 shadow-xs"
+          className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl object-contain shrink-0 shadow-md"
         />
-        <span
-          className={`text-base sm:text-lg font-bold tracking-tight whitespace-nowrap ${
-            variant === 'light' ? 'text-white' : 'text-slate-900'
-          }`}
-        >
+        <span className="text-lg sm:text-xl font-extrabold tracking-tight text-white whitespace-nowrap">
           {brandName}
         </span>
       </span>
@@ -46,24 +41,20 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   }
 
   return (
-    <span className="inline-flex items-center gap-2.5 select-none">
+    <span className="inline-flex items-center gap-2.5 select-none group">
       <span
         aria-hidden="true"
-        className={`inline-flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-lg font-mono text-xs font-bold shrink-0 ${
-          variant === 'light'
-            ? 'bg-emerald-800 text-white border border-emerald-600'
-            : 'bg-emerald-900 text-white'
-        }`}
+        className="inline-flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-[#f8e7a1] via-[#cba352] to-[#8c6a25] p-0.5 shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform shrink-0"
       >
-        $
+        <span className="w-full h-full bg-[#0a0f1d] rounded-[10px] flex items-center justify-center">
+          <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-[#f8e7a1] fill-[#cba352]" />
+        </span>
       </span>
-      <span
-        className={`text-base sm:text-lg font-bold tracking-tight whitespace-nowrap ${
-          variant === 'light' ? 'text-white' : 'text-slate-900'
-        }`}
-      >
-        {brandName}
+      <span className="text-lg sm:text-xl font-extrabold tracking-tight text-white whitespace-nowrap flex items-center">
+        <span>Trust</span>
+        <span className="text-[#cba352]">Zone</span>
       </span>
     </span>
   );
 };
+

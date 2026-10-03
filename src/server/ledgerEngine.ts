@@ -8,6 +8,9 @@ import type {
   LedgerEntry,
   LoginLogEntry,
   PaymentTransaction,
+  ReferralCommissionLog,
+  ReferralMember,
+  ReferralStatsResponse,
   SavedPayoutAccount,
   ServiceOrder,
   ServicePlan,
@@ -121,257 +124,258 @@ export interface DatabaseSchema {
   loginLogs: LoginLogEntry[];
   inquiries: SupportInquiry[];
   plans: ServicePlan[];
+  referralLogs: ReferralCommissionLog[];
   idempotencyKeys: Record<string, { createdAt: number; resultId: string }>;
 }
 
 export const INITIAL_PLANS: ServicePlan[] = [
   {
-    id: 'plan-1200',
-    name: 'Plan 01 — 1,200 Investment',
-    targetAudience: 'انویسٹمنٹ 1200 · Starter 30-Day Package',
-    price: '1,200 PKR',
-    dailyProfit: '600 PKR',
-    totalProfit: '18,000 PKR',
+    id: 'plan-01',
+    name: 'Plan 01',
+    targetAudience: 'Tier 01 · 90-Day Package',
+    price: 'Rs445.00',
+    dailyProfit: 'Rs89.00',
+    totalProfit: 'Rs8,010.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Entry-level 30-day package with Rs. 600 daily profit and Rs. 18,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Entry-tier smart investment with daily return of Rs89.00 and total return of Rs8,010.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 1,200',
-      'Daily Profit (روزانہ منافع): Rs. 600',
-      'Total Profit (منافع مکمل): Rs. 18,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs445.00',
+      'Daily Return: Rs89.00',
+      'Total Return: Rs8,010.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-3300',
-    name: 'Plan 02 — 3,300 Investment',
-    targetAudience: 'انویسٹمنٹ 3300 · Basic 30-Day Package',
-    price: '3,300 PKR',
-    dailyProfit: '1,650 PKR',
-    totalProfit: '49,500 PKR',
+    id: 'plan-02',
+    name: 'Plan 02',
+    targetAudience: 'Tier 02 · 90-Day Package',
+    price: 'Rs845.00',
+    dailyProfit: 'Rs169.00',
+    totalProfit: 'Rs15,210.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Basic 30-day package with Rs. 1,650 daily profit and Rs. 49,500 total 30-day return.',
+    duration: '90 Day',
+    description: 'Basic-tier smart investment with daily return of Rs169.00 and total return of Rs15,210.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 3,300',
-      'Daily Profit (روزانہ منافع): Rs. 1,650',
-      'Total Profit (منافع مکمل): Rs. 49,500',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs845.00',
+      'Daily Return: Rs169.00',
+      'Total Return: Rs15,210.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-8000',
-    name: 'Plan 03 — 8,000 Investment',
-    targetAudience: 'انویسٹمنٹ 8000 · Standard 30-Day Package',
-    price: '8,000 PKR',
-    dailyProfit: '4,000 PKR',
-    totalProfit: '120,000 PKR',
+    id: 'plan-03',
+    name: 'Plan 03',
+    targetAudience: 'Tier 03 · 90-Day Package',
+    price: 'Rs1,645.00',
+    dailyProfit: 'Rs329.00',
+    totalProfit: 'Rs29,610.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Standard 30-day package with Rs. 4,000 daily profit and Rs. 120,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Standard-tier smart investment with daily return of Rs329.00 and total return of Rs29,610.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 8,000',
-      'Daily Profit (روزانہ منافع): Rs. 4,000',
-      'Total Profit (منافع مکمل): Rs. 120,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs1,645.00',
+      'Daily Return: Rs329.00',
+      'Total Return: Rs29,610.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: true,
     active: true,
   },
   {
-    id: 'plan-15000',
-    name: 'Plan 04 — 15,000 Investment',
-    targetAudience: 'انویسٹمنٹ 15000 · Silver 30-Day Package',
-    price: '15,000 PKR',
-    dailyProfit: '7,500 PKR',
-    totalProfit: '225,000 PKR',
+    id: 'plan-04',
+    name: 'Plan 04',
+    targetAudience: 'Tier 04 · 90-Day Package',
+    price: 'Rs3,245.00',
+    dailyProfit: 'Rs649.00',
+    totalProfit: 'Rs58,410.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Silver 30-day package with Rs. 7,500 daily profit and Rs. 225,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Silver smart investment with daily return of Rs649.00 and total return of Rs58,410.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 15,000',
-      'Daily Profit (روزانہ منافع): Rs. 7,500',
-      'Total Profit (منافع مکمل): Rs. 225,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs3,245.00',
+      'Daily Return: Rs649.00',
+      'Total Return: Rs58,410.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-28000',
-    name: 'Plan 05 — 28,000 Investment',
-    targetAudience: 'انویسٹمنٹ 28000 · Growth 30-Day Package',
-    price: '28,000 PKR',
-    dailyProfit: '14,000 PKR',
-    totalProfit: '420,000 PKR',
+    id: 'plan-05',
+    name: 'Plan 05',
+    targetAudience: 'Tier 05 · 90-Day Package',
+    price: 'Rs6,445.00',
+    dailyProfit: 'Rs1,289.00',
+    totalProfit: 'Rs116,010.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Growth 30-day package with Rs. 14,000 daily profit and Rs. 420,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Growth smart investment with daily return of Rs1,289.00 and total return of Rs116,010.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 28,000',
-      'Daily Profit (روزانہ منافع): Rs. 14,000',
-      'Total Profit (منافع مکمل): Rs. 420,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
-    ],
-    ctaText: 'Invest Now',
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: 'plan-45000',
-    name: 'Plan 06 — 45,000 Investment',
-    targetAudience: 'انویسٹمنٹ 45000 · Gold 30-Day Package',
-    price: '45,000 PKR',
-    dailyProfit: '22,500 PKR',
-    totalProfit: '675,000 PKR',
-    currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Gold 30-day package with Rs. 22,500 daily profit and Rs. 675,000 total 30-day return.',
-    features: [
-      'Investment (انویسٹمنٹ): Rs. 45,000',
-      'Daily Profit (روزانہ منافع): Rs. 22,500',
-      'Total Profit (منافع مکمل): Rs. 675,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs6,445.00',
+      'Daily Return: Rs1,289.00',
+      'Total Return: Rs116,010.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: true,
     active: true,
   },
   {
-    id: 'plan-62000',
-    name: 'Plan 07 — 62,000 Investment',
-    targetAudience: 'انویسٹمنٹ 62000 · Premier 30-Day Package',
-    price: '62,000 PKR',
-    dailyProfit: '31,000 PKR',
-    totalProfit: '930,000 PKR',
+    id: 'plan-06',
+    name: 'Plan 06',
+    targetAudience: 'Tier 06 · 90-Day Package',
+    price: 'Rs12,045.00',
+    dailyProfit: 'Rs2,409.00',
+    totalProfit: 'Rs216,810.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Premier 30-day package with Rs. 31,000 daily profit and Rs. 930,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Gold smart investment with daily return of Rs2,409.00 and total return of Rs216,810.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 62,000',
-      'Daily Profit (روزانہ منافع): Rs. 31,000',
-      'Total Profit (منافع مکمل): Rs. 930,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs12,045.00',
+      'Daily Return: Rs2,409.00',
+      'Total Return: Rs216,810.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-85000',
-    name: 'Plan 08 — 85,000 Investment',
-    targetAudience: 'انویسٹمنٹ 85000 · Platinum 30-Day Package',
-    price: '85,000 PKR',
-    dailyProfit: '42,500 PKR',
-    totalProfit: '1,275,000 PKR',
+    id: 'plan-07',
+    name: 'Plan 07',
+    targetAudience: 'Tier 07 · 90-Day Package',
+    price: 'Rs24,045.00',
+    dailyProfit: 'Rs4,809.00',
+    totalProfit: 'Rs432,810.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Platinum 30-day package with Rs. 42,500 daily profit and Rs. 1,275,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Premier smart investment with daily return of Rs4,809.00 and total return of Rs432,810.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 85,000',
-      'Daily Profit (روزانہ منافع): Rs. 42,500',
-      'Total Profit (منافع مکمل): Rs. 1,275,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs24,045.00',
+      'Daily Return: Rs4,809.00',
+      'Total Return: Rs432,810.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-115000',
-    name: 'Plan 09 — 115,000 Investment',
-    targetAudience: 'انویسٹمنٹ 115000 · Executive 30-Day Package',
-    price: '115,000 PKR',
-    dailyProfit: '57,500 PKR',
-    totalProfit: '1,275,000 PKR',
+    id: 'plan-08',
+    name: 'Plan 08',
+    targetAudience: 'Tier 08 · 90-Day Package',
+    price: 'Rs48,045.00',
+    dailyProfit: 'Rs9,609.00',
+    totalProfit: 'Rs864,810.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Executive 30-day package with Rs. 57,500 daily profit and Rs. 1,275,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Platinum smart investment with daily return of Rs9,609.00 and total return of Rs864,810.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 115,000',
-      'Daily Profit (روزانہ منافع): Rs. 57,500',
-      'Total Profit (منافع مکمل): Rs. 1,275,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs48,045.00',
+      'Daily Return: Rs9,609.00',
+      'Total Return: Rs864,810.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
+    ],
+    ctaText: 'Invest Now',
+    isPopular: true,
+    active: true,
+  },
+  {
+    id: 'plan-09',
+    name: 'Plan 09',
+    targetAudience: 'Tier 09 · 90-Day Package',
+    price: 'Rs96,045.00',
+    dailyProfit: 'Rs19,209.00',
+    totalProfit: 'Rs1,728,810.00',
+    currency: 'PKR',
+    duration: '90 Day',
+    description: 'Executive smart investment with daily return of Rs19,209.00 and total return of Rs1,728,810.00.',
+    features: [
+      'Investment: Rs96,045.00',
+      'Daily Return: Rs19,209.00',
+      'Total Return: Rs1,728,810.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-180000',
-    name: 'Plan 10 — 180,000 Investment',
-    targetAudience: 'انویسٹمنٹ 180000 · Diamond 30-Day Package',
-    price: '180,000 PKR',
-    dailyProfit: '90,000 PKR',
-    totalProfit: '2,700,000 PKR',
+    id: 'plan-10',
+    name: 'Plan 10',
+    targetAudience: 'Tier 10 · 90-Day Package',
+    price: 'Rs146,945.00',
+    dailyProfit: 'Rs29,389.00',
+    totalProfit: 'Rs2,645,010.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Diamond 30-day package with Rs. 90,000 daily profit and Rs. 2,700,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Diamond smart investment with daily return of Rs29,389.00 and total return of Rs2,645,010.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 180,000',
-      'Daily Profit (روزانہ منافع): Rs. 90,000',
-      'Total Profit (منافع مکمل): Rs. 2,700,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs146,945.00',
+      'Daily Return: Rs29,389.00',
+      'Total Return: Rs2,645,010.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-250000',
-    name: 'Plan 11 — 250,000 Investment',
-    targetAudience: 'انویسٹمنٹ 250000 · Elite 30-Day Package',
-    price: '250,000 PKR',
-    dailyProfit: '125,000 PKR',
-    totalProfit: '3,750,000 PKR',
+    id: 'plan-11',
+    name: 'Plan 11',
+    targetAudience: 'Tier 11 · 90-Day Package',
+    price: 'Rs248,945.00',
+    dailyProfit: 'Rs49,789.00',
+    totalProfit: '4,481,010 PKR',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Elite 30-day package with Rs. 125,000 daily profit and Rs. 3,750,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Venture smart investment with daily return of Rs49,789.00 and total return of Rs4,481,010.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 250,000',
-      'Daily Profit (روزانہ منافع): Rs. 125,000',
-      'Total Profit (منافع مکمل): Rs. 3,750,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs248,945.00',
+      'Daily Return: Rs49,789.00',
+      'Total Return: Rs4,481,010.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: false,
     active: true,
   },
   {
-    id: 'plan-300000',
-    name: 'Plan 12 — 300,000 Investment',
-    targetAudience: 'انویسٹمنٹ 300000 · Crown 30-Day Package',
-    price: '300,000 PKR',
-    dailyProfit: '150,000 PKR',
-    totalProfit: '4,500,000 PKR',
+    id: 'plan-12',
+    name: 'Plan 12',
+    targetAudience: 'Tier 12 · 90-Day Package',
+    price: 'Rs334,945.00',
+    dailyProfit: 'Rs66,989.00',
+    totalProfit: 'Rs6,029,010.00',
     currency: 'PKR',
-    duration: '30 Days (30 دن)',
-    description:
-      'Top-tier 30-day package with Rs. 150,000 daily profit and Rs. 4,500,000 total 30-day return.',
+    duration: '90 Day',
+    description: 'Ultimate smart investment with daily return of Rs66,989.00 and total return of Rs6,029,010.00.',
     features: [
-      'Investment (انویسٹمنٹ): Rs. 300,000',
-      'Daily Profit (روزانہ منافع): Rs. 150,000',
-      'Total Profit (منافع مکمل): Rs. 4,500,000',
-      'Plan Duration (پلان مدت): 30 Days (30 دن)',
+      'Investment: Rs334,945.00',
+      'Daily Return: Rs66,989.00',
+      'Total Return: Rs6,029,010.00',
+      'Duration: 90 Day',
+      'Refer Commission: L1 13% · L2 2%',
     ],
     ctaText: 'Invest Now',
     isPopular: true,
@@ -450,6 +454,10 @@ export function createInitialDb(): DatabaseSchema {
         activePlanId: null,
         savedPayoutAccounts: [],
         createdAt: now,
+        referralCode: 'TZ-ADMIN',
+        referredBy: null,
+        referralCount: 0,
+        totalReferralEarnings: 0,
       },
       {
         id: 'usr-admin-abubakar',
@@ -461,6 +469,10 @@ export function createInitialDb(): DatabaseSchema {
         activePlanId: null,
         savedPayoutAccounts: [],
         createdAt: now,
+        referralCode: 'TZ-ABUBAKAR',
+        referredBy: null,
+        referralCount: 0,
+        totalReferralEarnings: 0,
       },
       {
         id: 'usr-client-1',
@@ -476,6 +488,10 @@ export function createInitialDb(): DatabaseSchema {
         lastLoginIp: '182.180.142.10',
         loginCount: 3,
         totalInvested: 0,
+        referralCode: 'TZ-CLIENT1',
+        referredBy: 'usr-admin-abubakar',
+        referralCount: 0,
+        totalReferralEarnings: 0,
       },
     ],
     wallets: [
@@ -557,6 +573,7 @@ export function createInitialDb(): DatabaseSchema {
     ],
     inquiries: [],
     plans: JSON.parse(JSON.stringify(INITIAL_PLANS)),
+    referralLogs: [],
     idempotencyKeys: {},
   };
 }
@@ -606,7 +623,7 @@ export class LedgerEngine {
       const resolvedPlans =
         Array.isArray(parsed.plans) &&
         parsed.plans.length > 0 &&
-        !parsed.plans.some((p) => p.id === 'plan-standard')
+        !parsed.plans.some((p) => p.id === 'plan-standard' || p.id === 'plan-1200')
           ? parsed.plans
           : fallback.plans;
 
@@ -632,6 +649,17 @@ export class LedgerEngine {
           lastLoginIp: u.lastLoginIp || (u.id === 'usr-client-1' ? '182.180.142.10' : null),
           loginCount: typeof u.loginCount === 'number' ? u.loginCount : (u.id === 'usr-client-1' ? 3 : 0),
           totalInvested: typeof u.totalInvested === 'number' ? u.totalInvested : 0,
+          referralCode:
+            u.referralCode ||
+            (u.identifier.toLowerCase() === OWNER_ADMIN_EMAIL.toLowerCase()
+              ? 'TZ-ADMIN'
+              : u.identifier.toLowerCase() === SECONDARY_ADMIN_EMAIL.toLowerCase()
+              ? 'TZ-ABUBAKAR'
+              : `TZ-${u.id.slice(-6).toUpperCase()}`),
+          referredBy: u.referredBy || (u.id === 'usr-client-1' ? 'usr-admin-abubakar' : null),
+          referralCount: typeof u.referralCount === 'number' ? u.referralCount : 0,
+          totalReferralEarnings:
+            typeof u.totalReferralEarnings === 'number' ? u.totalReferralEarnings : 0,
         };
       });
 
@@ -670,6 +698,7 @@ export class LedgerEngine {
         loginLogs: rawLoginLogs,
         inquiries: Array.isArray(parsed.inquiries) ? parsed.inquiries : [],
         plans: resolvedPlans,
+        referralLogs: Array.isArray(parsed.referralLogs) ? parsed.referralLogs : [],
         idempotencyKeys: parsed.idempotencyKeys || {},
       };
 
@@ -949,6 +978,278 @@ export class LedgerEngine {
     });
   }
 
+  /**
+   * Distribute multi-tier referral commissions (Level 1: 13%, Level 2: 2%)
+   * Directly credits referrer wallet available balances and records ledger/audit/notification logs.
+   */
+  public distributeReferralCommissions(
+    db: DatabaseSchema,
+    buyerUser: StoredUserRecord,
+    sourceAmount: number,
+    planName: string,
+    sourceDescription: string
+  ): void {
+    if (!buyerUser.referredBy || sourceAmount <= 0) return;
+    const now = new Date().toISOString();
+
+    // 1. Direct Referrer (Level 1 - 13%)
+    const l1Referrer = db.users.find(
+      (u) =>
+        u.id === buyerUser.referredBy ||
+        (u.referralCode && u.referralCode.toUpperCase() === buyerUser.referredBy?.toUpperCase())
+    );
+
+    if (l1Referrer && l1Referrer.id !== buyerUser.id) {
+      const l1Commission = Math.round(sourceAmount * 0.13);
+      if (l1Commission > 0) {
+        const l1Wallet = this.getOrCreateWallet(db, l1Referrer.id);
+        const l1BalBefore = l1Wallet.availableBalance;
+        const l1BalAfter = l1BalBefore + l1Commission;
+        l1Wallet.availableBalance = l1BalAfter;
+
+        l1Referrer.totalReferralEarnings = (l1Referrer.totalReferralEarnings || 0) + l1Commission;
+
+        const txId = `COMM-L1-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+        this.appendLedgerEntry(db, {
+          userId: l1Referrer.id,
+          transactionId: txId,
+          type: 'REFERRAL_COMMISSION',
+          direction: 'CREDIT',
+          amount: l1Commission,
+          balanceBefore: l1BalBefore,
+          balanceAfter: l1BalAfter,
+          pendingBefore: l1Wallet.pendingBalance,
+          pendingAfter: l1Wallet.pendingBalance,
+          description: `Level 1 referral commission (13%) from ${buyerUser.name} on ${planName} (Rs. ${sourceAmount.toLocaleString()})`,
+        });
+
+        db.unifiedTransactions.push({
+          id: `TXN-${txId}`,
+          userId: l1Referrer.id,
+          type: 'COMMISSION',
+          amount: l1Commission,
+          fee: 0,
+          netAmount: l1Commission,
+          status: 'COMPLETED',
+          referenceId: buyerUser.id,
+          description: `Level 1 referral bonus (13%) from ${buyerUser.name} (${planName})`,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        if (!Array.isArray(db.referralLogs)) {
+          db.referralLogs = [];
+        }
+        db.referralLogs.push({
+          id: `REFLOG-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+          referrerId: l1Referrer.id,
+          referredUserId: buyerUser.id,
+          referredUserName: buyerUser.name,
+          level: 1,
+          commissionPercent: 13,
+          sourceAmount,
+          commissionAmount: l1Commission,
+          planName,
+          createdAt: now,
+        });
+
+        this.appendNotification(
+          db,
+          l1Referrer.id,
+          `🎉 Referral Bonus Credited (+Rs. ${l1Commission.toLocaleString()})`,
+          `You earned a direct Level 1 referral bonus of Rs. ${l1Commission.toLocaleString()} (13%) from your team member ${buyerUser.name}'s investment in ${planName}. Funds have been credited to your available balance.`,
+          'SUCCESS'
+        );
+      }
+
+      // 2. Indirect Referrer (Level 2 - 2%)
+      if (l1Referrer.referredBy) {
+        const l2Referrer = db.users.find(
+          (u) =>
+            u.id === l1Referrer.referredBy ||
+            (u.referralCode && u.referralCode.toUpperCase() === l1Referrer.referredBy?.toUpperCase())
+        );
+
+        if (
+          l2Referrer &&
+          l2Referrer.id !== buyerUser.id &&
+          l2Referrer.id !== l1Referrer.id
+        ) {
+          const l2Commission = Math.round(sourceAmount * 0.02);
+          if (l2Commission > 0) {
+            const l2Wallet = this.getOrCreateWallet(db, l2Referrer.id);
+            const l2BalBefore = l2Wallet.availableBalance;
+            const l2BalAfter = l2BalBefore + l2Commission;
+            l2Wallet.availableBalance = l2BalAfter;
+
+            l2Referrer.totalReferralEarnings = (l2Referrer.totalReferralEarnings || 0) + l2Commission;
+
+            const l2TxId = `COMM-L2-${Date.now()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+            this.appendLedgerEntry(db, {
+              userId: l2Referrer.id,
+              transactionId: l2TxId,
+              type: 'REFERRAL_COMMISSION',
+              direction: 'CREDIT',
+              amount: l2Commission,
+              balanceBefore: l2BalBefore,
+              balanceAfter: l2BalAfter,
+              pendingBefore: l2Wallet.pendingBalance,
+              pendingAfter: l2Wallet.pendingBalance,
+              description: `Level 2 referral commission (2%) from ${buyerUser.name} on ${planName} via ${l1Referrer.name}`,
+            });
+
+            db.unifiedTransactions.push({
+              id: `TXN-${l2TxId}`,
+              userId: l2Referrer.id,
+              type: 'COMMISSION',
+              amount: l2Commission,
+              fee: 0,
+              netAmount: l2Commission,
+              status: 'COMPLETED',
+              referenceId: buyerUser.id,
+              description: `Level 2 referral bonus (2%) from ${buyerUser.name} via ${l1Referrer.name}`,
+              createdAt: now,
+              updatedAt: now,
+            });
+
+            if (!Array.isArray(db.referralLogs)) {
+              db.referralLogs = [];
+            }
+            db.referralLogs.push({
+              id: `REFLOG-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+              referrerId: l2Referrer.id,
+              referredUserId: buyerUser.id,
+              referredUserName: buyerUser.name,
+              level: 2,
+              commissionPercent: 2,
+              sourceAmount,
+              commissionAmount: l2Commission,
+              planName,
+              createdAt: now,
+            });
+
+            this.appendNotification(
+              db,
+              l2Referrer.id,
+              `🎉 Team Referral Bonus (+Rs. ${l2Commission.toLocaleString()})`,
+              `You earned a Level 2 team bonus of Rs. ${l2Commission.toLocaleString()} (2%) from ${buyerUser.name}'s investment in ${planName} (invited by ${l1Referrer.name}). Funds have been credited to your available balance.`,
+              'SUCCESS'
+            );
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Retrieves complete referral stats, multi-tier team members, and commission logs for a user.
+   */
+  public getReferralStats(userId: string): ReferralStatsResponse {
+    const db = this.readDbSync();
+    const user = db.users.find((u) => u.id === userId);
+    const referralCode =
+      user?.referralCode || (user ? `TZ-${user.id.slice(-6).toUpperCase()}` : 'TRUSTZONE-VIP');
+
+    if (!user) {
+      return {
+        referralCode,
+        referralLink: `/?ref=${referralCode}`,
+        referredBy: null,
+        totalEarnings: 0,
+        totalReferrals: 0,
+        level1Count: 0,
+        level2Count: 0,
+        level1Earnings: 0,
+        level2Earnings: 0,
+        teamMembers: [],
+        commissionLogs: [],
+      };
+    }
+
+    const logs = Array.isArray(db.referralLogs)
+      ? db.referralLogs.filter((l) => l.referrerId === user.id)
+      : [];
+
+    // Level 1 members: users whose referredBy matches user.id or user.referralCode
+    const l1Members = db.users.filter(
+      (u) =>
+        u.id !== user.id &&
+        (u.referredBy === user.id ||
+          (user.referralCode && u.referredBy?.toUpperCase() === user.referralCode.toUpperCase()))
+    );
+    const l1MemberIds = new Set(l1Members.map((m) => m.id));
+
+    // Level 2 members: users whose referredBy matches any of l1Member's id or referralCode
+    const l2Members = db.users.filter((u) => {
+      if (u.id === user.id || l1MemberIds.has(u.id)) return false;
+      return l1Members.some(
+        (m) =>
+          u.referredBy === m.id ||
+          (m.referralCode && u.referredBy?.toUpperCase() === m.referralCode.toUpperCase())
+      );
+    });
+
+    const l1Earnings = logs
+      .filter((l) => l.level === 1)
+      .reduce((sum, l) => sum + l.commissionAmount, 0);
+    const l2Earnings = logs
+      .filter((l) => l.level === 2)
+      .reduce((sum, l) => sum + l.commissionAmount, 0);
+
+    const teamMembers: ReferralMember[] = [
+      ...l1Members.map((m) => {
+        const invested = this.calculateUserInvested(db, m.id);
+        const earned = logs
+          .filter((l) => l.referredUserId === m.id)
+          .reduce((sum, l) => sum + l.commissionAmount, 0);
+        const plan = db.plans.find((p) => p.id === m.activePlanId);
+        return {
+          id: m.id,
+          userId: m.id,
+          name: m.name,
+          identifier: m.identifier,
+          joinedAt: m.createdAt,
+          level: 1 as const,
+          activePlanName: plan ? plan.name : null,
+          totalInvested: invested,
+          commissionEarned: earned,
+        };
+      }),
+      ...l2Members.map((m) => {
+        const invested = this.calculateUserInvested(db, m.id);
+        const earned = logs
+          .filter((l) => l.referredUserId === m.id)
+          .reduce((sum, l) => sum + l.commissionAmount, 0);
+        const plan = db.plans.find((p) => p.id === m.activePlanId);
+        return {
+          id: m.id,
+          userId: m.id,
+          name: m.name,
+          identifier: m.identifier,
+          joinedAt: m.createdAt,
+          level: 2 as const,
+          activePlanName: plan ? plan.name : null,
+          totalInvested: invested,
+          commissionEarned: earned,
+        };
+      }),
+    ];
+
+    return {
+      referralCode,
+      referralLink: `/?ref=${referralCode}`,
+      referredBy: user.referredBy || null,
+      totalEarnings: l1Earnings + l2Earnings,
+      totalReferrals: l1Members.length + l2Members.length,
+      level1Count: l1Members.length,
+      level2Count: l2Members.length,
+      level1Earnings: l1Earnings,
+      level2Earnings: l2Earnings,
+      teamMembers,
+      commissionLogs: [...logs].reverse(),
+    };
+  }
+
   // --- 1. Deposit Creation ---
   public async createDeposit(params: {
     userId: string;
@@ -1171,6 +1472,19 @@ export class LedgerEngine {
             'SUCCESS'
           );
         }
+
+        // Trigger multi-tier referral commission distribution
+        try {
+          this.distributeReferralCommissions(
+            db,
+            user,
+            amount,
+            deposit.planName || 'Investment Plan',
+            'Deposit Approved'
+          );
+        } catch (commErr) {
+          console.error('Error distributing referral commission on deposit approval:', commErr);
+        }
       } else if (params.status === 'Rejected') {
         // If previously Approved, reverse the credited balance cleanly
         if (prevStatus === 'Approved') {
@@ -1328,6 +1642,19 @@ export class LedgerEngine {
         `You purchased ${plan.name} for Rs. ${price.toLocaleString()} from your Available Balance.`,
         'SUCCESS'
       );
+
+      // Trigger multi-tier referral commission distribution
+      try {
+        this.distributeReferralCommissions(
+          db,
+          user,
+          price,
+          plan.name,
+          'Wallet Plan Activation'
+        );
+      } catch (commErr) {
+        console.error('Error distributing referral commission on wallet purchase:', commErr);
+      }
 
       return order;
     });
