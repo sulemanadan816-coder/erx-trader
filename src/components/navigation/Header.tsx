@@ -18,12 +18,16 @@ const NAV_ITEMS: { label: string; route: PageRoute }[] = [
   { label: 'Contact', route: 'contact' },
 ];
 
-const AUTHORIZED_ADMIN_EMAILS = ['sulemanadan816@gmail.com', 'abubakararain104@gmail.com'];
+const AUTHORIZED_ADMIN_EMAILS = [
+  'sulemanadan816@gmail.com',
+  'abubakararain104@gmail.com',
+  'adangujjar3321@gmail.com',
+];
 function isExclusiveOwnerAdmin(user: UserAccount | null): boolean {
   return Boolean(
     user &&
-      user.role === 'admin' &&
-      AUTHORIZED_ADMIN_EMAILS.includes(user.identifier.toLowerCase())
+      (user.role === 'admin' ||
+        AUTHORIZED_ADMIN_EMAILS.includes(user.identifier.toLowerCase()))
   );
 }
 
@@ -131,8 +135,17 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Mobile Hamburger Toggle */}
-        <div className="flex lg:hidden items-center">
+        {/* Mobile Hamburger Toggle & Quick Action */}
+        <div className="flex lg:hidden items-center gap-2">
+          {user && (
+            <button
+              type="button"
+              onClick={() => handleNavClick(isExclusiveOwnerAdmin(user) ? 'admin' : 'dashboard')}
+              className="px-2.5 py-1.5 text-xs font-bold text-[#0b0f19] bg-gradient-to-r from-[#f8e7a1] via-[#cba352] to-[#b88d37] rounded-md shadow-xs whitespace-nowrap cursor-pointer"
+            >
+              {isExclusiveOwnerAdmin(user) ? 'Admin' : 'Dashboard'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setMobileMenuOpen((prev) => !prev)}

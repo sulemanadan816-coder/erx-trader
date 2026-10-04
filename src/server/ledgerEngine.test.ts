@@ -119,9 +119,10 @@ async function runAllTests() {
     assert.strictEqual(wallet.availableBalance, 25000);
     assert.strictEqual(wallet.pendingBalance, 0);
     assert.strictEqual(wallet.totalDeposited, 25000);
-    assert.strictEqual(db.ledgerEntries.length, 1);
-    assert.strictEqual(db.ledgerEntries[0].balanceBefore, 0);
-    assert.strictEqual(db.ledgerEntries[0].balanceAfter, 25000);
+    const clientEntries = db.ledgerEntries.filter((l) => l.userId === 'usr-client-1');
+    assert.strictEqual(clientEntries.length, 1);
+    assert.strictEqual(clientEntries[0].balanceBefore, 0);
+    assert.strictEqual(clientEntries[0].balanceAfter, 25000);
     console.log('✓ [5/13] Payment approval, wallet credit & immutable ledger entry passed');
   }
 

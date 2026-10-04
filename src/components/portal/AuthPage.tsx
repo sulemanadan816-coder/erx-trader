@@ -271,14 +271,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Credentials Reminder */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
-            <div className="flex items-center justify-between">
-              <span>Admin: <strong className="font-mono text-slate-200">abubakararain104@gmail.com</strong></span>
-              <span className="text-amber-400 font-medium">Administrator</span>
-            </div>
-          </div>
         </div>
       </div>
     </section>

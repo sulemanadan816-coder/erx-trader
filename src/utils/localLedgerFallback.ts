@@ -50,9 +50,11 @@ interface LocalDatabaseSchema {
 const DB_STORAGE_KEY = 'rex_traders_authoritative_ledger_v2';
 export const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
 export const SECONDARY_ADMIN_EMAIL = 'abubakararain104@gmail.com';
+export const TERTIARY_ADMIN_EMAIL = 'adangujjar3321@gmail.com';
 export const AUTHORIZED_ADMIN_EMAILS = [
   OWNER_ADMIN_EMAIL,
   SECONDARY_ADMIN_EMAIL,
+  TERTIARY_ADMIN_EMAIL,
 ];
 
 export function isAuthorizedAdminEmail(identifier: string): boolean {

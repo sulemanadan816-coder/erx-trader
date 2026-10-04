@@ -29,9 +29,11 @@ const TOKEN_SECRET = process.env.SESSION_SECRET || 'rex-traders-hmac-secret-key-
 
 export const OWNER_ADMIN_EMAIL = 'sulemanadan816@gmail.com';
 export const SECONDARY_ADMIN_EMAIL = 'abubakararain104@gmail.com';
+export const TERTIARY_ADMIN_EMAIL = 'adangujjar3321@gmail.com';
 export const AUTHORIZED_ADMIN_EMAILS = [
   OWNER_ADMIN_EMAIL,
   SECONDARY_ADMIN_EMAIL,
+  TERTIARY_ADMIN_EMAIL,
 ];
 
 export function isAuthorizedAdminEmail(identifier: string): boolean {
@@ -52,6 +54,10 @@ const DEFAULT_OWNER_ADMIN_HASH = hashPassword(
 const DEFAULT_ABUBAKAR_ADMIN_HASH = hashPassword(
   'Arain@786',
   '777aaa4b32cb9023b64681ba4b0c6a8f'
+);
+const DEFAULT_ADAN_ADMIN_HASH = hashPassword(
+  'Adan@Rex2026!',
+  '999bbb5c43dca034a75792ab5c0d7b9a'
 );
 const DEFAULT_CLIENT_PASSWORD_HASH =
   '2b2fb7c338ca016f82fcb3040ca12a22:7a297f0499c88226a1f736aff551da75e9e4b80490f276e3cd8a76865841e38a8457c4da85b8a23e40723af6ed862a8e81dd83108dba75e3064d7ffe33c5c07f';
@@ -475,6 +481,21 @@ export function createInitialDb(): DatabaseSchema {
         totalReferralEarnings: 0,
       },
       {
+        id: 'usr-admin-adan',
+        name: 'Adan Gujjar (REX TRADERS Admin)',
+        identifier: TERTIARY_ADMIN_EMAIL,
+        passwordHash: DEFAULT_ADAN_ADMIN_HASH,
+        role: 'admin',
+        status: 'ACTIVE',
+        activePlanId: null,
+        savedPayoutAccounts: [],
+        createdAt: now,
+        referralCode: 'TZ-ADAN',
+        referredBy: null,
+        referralCount: 0,
+        totalReferralEarnings: 0,
+      },
+      {
         id: 'usr-client-1',
         name: 'Client Account',
         identifier: 'client@rextraders.com',
@@ -655,6 +676,8 @@ export class LedgerEngine {
               ? 'TZ-ADMIN'
               : u.identifier.toLowerCase() === SECONDARY_ADMIN_EMAIL.toLowerCase()
               ? 'TZ-ABUBAKAR'
+              : u.identifier.toLowerCase() === TERTIARY_ADMIN_EMAIL.toLowerCase()
+              ? 'TZ-ADAN'
               : `TZ-${u.id.slice(-6).toUpperCase()}`),
           referredBy: u.referredBy || (u.id === 'usr-client-1' ? 'usr-admin-abubakar' : null),
           referralCount: typeof u.referralCount === 'number' ? u.referralCount : 0,

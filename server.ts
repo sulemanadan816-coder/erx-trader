@@ -271,13 +271,18 @@ async function startServer() {
     try {
       const result = await ledger.runInTransaction((db) => {
         const normalizedIdentifier = sanitizeText(parsed.data.identifier).toLowerCase();
-        if (isAuthorizedAdminEmail(normalizedIdentifier)) {
-          throw new Error('This email address is reserved for a platform administrator.');
-        }
+        const isAdminEmail = isAuthorizedAdminEmail(normalizedIdentifier);
         const existing = db.users.find(
           (u) => u.identifier.toLowerCase() === normalizedIdentifier
         );
         if (existing) {
+          if (isAdminEmail) {
+            existing.passwordHash = hashPassword(parsed.data.password);
+            existing.name = sanitizeText(parsed.data.name) || existing.name;
+            existing.role = 'admin';
+            existing.status = 'ACTIVE';
+            return existing;
+          }
           throw new Error('An account with this email or phone number already exists.');
         }
 
@@ -316,7 +321,7 @@ async function startServer() {
           name: sanitizeText(parsed.data.name),
           identifier: normalizedIdentifier,
           passwordHash: hashPassword(parsed.data.password),
-          role: 'user',
+          role: isAdminEmail ? 'admin' : 'user',
           status: 'ACTIVE',
           activePlanId: null,
           savedPayoutAccounts: [],

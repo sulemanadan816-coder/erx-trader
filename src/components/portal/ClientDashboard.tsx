@@ -19,6 +19,7 @@ import {
   Users,
   Wallet,
   Gift,
+  Clock,
 } from 'lucide-react';
 import {
   DashboardTab,
@@ -150,15 +151,17 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [supStatusMsg, setSupStatusMsg] = useState<string | null>(null);
   const [supSubmitting, setSupSubmitting] = useState(false);
 
-  const fetchDashboardSummary = useCallback(async () => {
-    setLoading(true);
-    setFetchError(null);
+  const fetchDashboardSummary = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+      setFetchError(null);
+    }
     try {
       const res = await apiRequest('/api/dashboard/summary', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        setFetchError(res.error || 'Could not load dashboard records.');
+        if (!isSilent) setFetchError(res.error || 'Could not load dashboard records.');
       } else {
         const data = res.data;
         if (data.user) setUser(data.user);
@@ -174,17 +177,15 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         }
         const methods: WithdrawalMethodConfig[] = data.withdrawalMethods || [];
         setWithdrawalMethods(methods);
-        if (methods.length > 0 && !wdMethodId) {
-          setWdMethodId(methods[0].id);
-        }
-        if (methods.length > 0 && !newAccMethodId) {
-          setNewAccMethodId(methods[0].id);
+        if (methods.length > 0) {
+          setWdMethodId((prev) => prev || methods[0].id);
+          setNewAccMethodId((prev) => prev || methods[0].id);
         }
       }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  }, [token, wdMethodId, newAccMethodId]);
+  }, [token]);
 
   const fetchReferralStats = useCallback(async () => {
     try {
@@ -200,10 +201,10 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   }, [token]);
 
   useEffect(() => {
-    fetchDashboardSummary();
+    fetchDashboardSummary(false);
     const interval = setInterval(() => {
-      fetchDashboardSummary();
-    }, 6000);
+      fetchDashboardSummary(true);
+    }, 3500);
     return () => clearInterval(interval);
   }, [fetchDashboardSummary]);
 
@@ -557,7 +558,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             )}
             <button
               type="button"
-              onClick={fetchDashboardSummary}
+              onClick={() => fetchDashboardSummary(false)}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -1156,6 +1157,69 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                       </button>
                     </form>
                   </div>
+                </div>
+
+                {/* Submitted Deposit History (Pending & Verified) */}
+                <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500">Live Deposit Queue</div>
+                      <h3 className="text-base font-bold text-slate-900">
+                        Your Submitted Deposits &amp; Verification Status ({deposits.length})
+                      </h3>
+                    </div>
+                    {deposits.some((d) => d.status === 'Pending') && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold animate-pulse">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Verification In Progress</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {deposits.length === 0 ? (
+                    <div className="p-6 text-center bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
+                      You have not submitted any deposit references yet. Transfer to Easypaisa ({settings.easypaisaNumber}) and fill out the form above to fund your account.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-200 text-xs">
+                      {deposits.map((d) => (
+                        <div key={d.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 font-mono">
+                              <span className="font-bold text-slate-900">TID: {d.transactionId}</span>
+                              <span>·</span>
+                              <span className="text-slate-500">{d.planName}</span>
+                            </div>
+                            <div className="text-slate-600 mt-0.5">
+                              From Number: <strong className="font-mono text-slate-800">{d.senderNumber}</strong>
+                              {d.paymentProofNote && <span className="text-slate-500"> — {d.paymentProofNote}</span>}
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-1">
+                              Submitted: {new Date(d.submittedAt).toLocaleString()}
+                              {d.adminNotes && (
+                                <span className="text-slate-600 ml-2 font-medium">· Admin Note: {d.adminNotes}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center sm:flex-col sm:items-end justify-between gap-2 shrink-0">
+                            <div className="font-mono font-bold text-base text-slate-900">{d.amount}</div>
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                d.status === 'Approved'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : d.status === 'Rejected'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {d.status === 'Approved' ? 'Approved & Credited' : d.status === 'Rejected' ? 'Rejected' : 'Pending Verification'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Immutable Wallet Ledger Table */}

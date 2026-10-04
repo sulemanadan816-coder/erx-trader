@@ -52,6 +52,25 @@
       "totalReferralEarnings": 58
     },
     {
+      "id": "usr-admin-adan",
+      "name": "Adan Gujjar (REX TRADERS Admin)",
+      "identifier": "adangujjar3321@gmail.com",
+      "passwordHash": "999bbb5c43dca034a75792ab5c0d7b9a:b1c978ee369b0e0615eab4428f0a635ed9a8537065c3b33f4bcb9c10ce339eada75bc57f8f2aec620578f7efbe89572ddbc5504bb742fab8c6252c4ddb129519",
+      "role": "admin",
+      "status": "ACTIVE",
+      "activePlanId": null,
+      "savedPayoutAccounts": [],
+      "createdAt": "2026-10-02T14:44:35.976Z",
+      "lastLoginAt": "2026-10-04T06:37:29.999Z",
+      "lastLoginIp": "127.0.0.1",
+      "loginCount": 1,
+      "totalInvested": 0,
+      "referralCode": "TZ-ADAN",
+      "referredBy": null,
+      "referralCount": 0,
+      "totalReferralEarnings": 0
+    },
+    {
       "id": "usr-client-1",
       "name": "Client Account",
       "identifier": "client@rextraders.com",
@@ -164,6 +183,25 @@
       "referredBy": "usr-admin-abubakar",
       "referralCount": 0,
       "totalReferralEarnings": 0
+    },
+    {
+      "id": "usr-1791095874847-a00d5a",
+      "name": "Android Test User",
+      "identifier": "androidtest@rextraders.com",
+      "passwordHash": "df5a7e7146d0549202112b218f974f82:69f9bfd336573831329f510ab97de2a561540c12ea877462ba7105f2fd90e22a10e20ad19de702023279874832a75658d0ed7ac80be7b805b0bb52de7e2bfb00",
+      "role": "user",
+      "status": "ACTIVE",
+      "activePlanId": null,
+      "savedPayoutAccounts": [],
+      "createdAt": "2026-10-04T06:37:54.847Z",
+      "lastLoginAt": "2026-10-04T06:37:54.895Z",
+      "lastLoginIp": "127.0.0.1",
+      "loginCount": 2,
+      "totalInvested": 0,
+      "referralCode": "TZ108692",
+      "referredBy": null,
+      "referralCount": 0,
+      "totalReferralEarnings": 0
     }
   ],
   "wallets": [
@@ -179,7 +217,7 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-admin-abubakar",
@@ -193,7 +231,21 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
+    },
+    {
+      "id": "wal-usr-admin-adan",
+      "userId": "usr-admin-adan",
+      "availableBalance": 0,
+      "pendingBalance": 0,
+      "reservedWithdrawalBalance": 0,
+      "totalBalance": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "pendingWithdrawalsAmount": 0,
+      "completedWithdrawalsAmount": 0,
+      "currency": "PKR",
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-client-1",
@@ -207,7 +259,7 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-1790952763952-b571dc",
@@ -221,7 +273,7 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-1791028998463-493a65",
@@ -235,7 +287,7 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-1791029084598-a76cbe",
@@ -249,7 +301,7 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-1791029106573-751b6a",
@@ -263,7 +315,7 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     },
     {
       "id": "wal-usr-1791029159701-977276",
@@ -277,7 +329,21 @@
       "pendingWithdrawalsAmount": 0,
       "completedWithdrawalsAmount": 0,
       "currency": "PKR",
-      "updatedAt": "2026-10-03T12:05:59.819Z"
+      "updatedAt": "2026-10-04T06:38:02.947Z"
+    },
+    {
+      "id": "wal-usr-1791095874847-a00d5a",
+      "userId": "usr-1791095874847-a00d5a",
+      "availableBalance": 0,
+      "pendingBalance": 5000,
+      "reservedWithdrawalBalance": 0,
+      "totalBalance": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "pendingWithdrawalsAmount": 0,
+      "completedWithdrawalsAmount": 0,
+      "currency": "PKR",
+      "updatedAt": "2026-10-04T06:38:02.947Z"
     }
   ],
   "ledgerEntries": [
@@ -366,6 +432,19 @@
       "description": "Level 1 referral bonus (13%) from Hamza Ahmed (Plan 01)",
       "createdAt": "2026-10-03T12:05:59.819Z",
       "updatedAt": "2026-10-03T12:05:59.819Z"
+    },
+    {
+      "id": "TXN-1791095882941-1E535A",
+      "userId": "usr-1791095874847-a00d5a",
+      "type": "DEPOSIT",
+      "amount": 5000,
+      "fee": 0,
+      "netAmount": 5000,
+      "status": "PENDING",
+      "referenceId": "DEP-1791095882941-D93D6B",
+      "description": "Easypaisa wallet deposit (TID: EP78912345) — Pending admin verification",
+      "createdAt": "2026-10-04T06:38:02.941Z",
+      "updatedAt": "2026-10-04T06:38:02.941Z"
     }
   ],
   "transactions": [
@@ -408,6 +487,26 @@
       "adminNotes": "Verified Easypaisa payment TID EP-HAMZA-12345",
       "reviewedAt": "2026-10-03T12:05:59.818Z",
       "reviewedBy": "Abubakar Arain (REX TRADERS Admin)"
+    },
+    {
+      "id": "DEP-1791095882941-D93D6B",
+      "userId": "usr-1791095874847-a00d5a",
+      "userName": "Android Test User",
+      "userIdentifier": "androidtest@rextraders.com",
+      "planId": "wallet-deposit",
+      "planName": "Wallet Deposit (Available Balance)",
+      "transactionId": "EP78912345",
+      "amount": "5,000 PKR",
+      "numericAmount": 5000,
+      "paymentMethod": "Easypaisa (03260767504)",
+      "senderNumber": "03219876543",
+      "paymentProofNote": "Test mobile deposit",
+      "creditToWalletOnly": true,
+      "submittedAt": "2026-10-04T06:38:02.941Z",
+      "status": "Pending",
+      "adminNotes": "Awaiting manual administrator verification of Easypaisa transfer.",
+      "reviewedAt": null,
+      "reviewedBy": null
     }
   ],
   "orders": [
@@ -594,6 +693,24 @@
       "type": "SUCCESS",
       "read": false,
       "createdAt": "2026-10-03T12:05:59.819Z"
+    },
+    {
+      "id": "NOTIF-1791095874894",
+      "userId": "usr-1791095874847-a00d5a",
+      "title": "Account Created Successfully",
+      "message": "Welcome to TrustZone. Your wallet has been initialized. You can now invest in high-yield daily plans and earn 13% + 2% referral commissions!",
+      "type": "INFO",
+      "read": false,
+      "createdAt": "2026-10-04T06:37:54.847Z"
+    },
+    {
+      "id": "NOTIF-1791095882947-e0793d",
+      "userId": "usr-1791095874847-a00d5a",
+      "title": "Easypaisa Deposit Submitted (Pending)",
+      "message": "Your Easypaisa transfer reference (TID: EP78912345) for Rs. 5,000 has been recorded as PENDING. It will be credited once verified by an administrator.",
+      "type": "INFO",
+      "read": false,
+      "createdAt": "2026-10-04T06:38:02.947Z"
     }
   ],
   "auditLogs": [
@@ -631,6 +748,30 @@
     }
   ],
   "loginLogs": [
+    {
+      "id": "LOG-1791095874895-EF0FDA",
+      "userId": "usr-1791095874847-a00d5a",
+      "userName": "Android Test User",
+      "userIdentifier": "androidtest@rextraders.com",
+      "role": "user",
+      "timestamp": "2026-10-04T06:37:54.895Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
+    {
+      "id": "LOG-1791095849999-9B56F5",
+      "userId": "usr-admin-adan",
+      "userName": "Adan Gujjar (REX TRADERS Admin)",
+      "userIdentifier": "adangujjar3321@gmail.com",
+      "role": "admin",
+      "timestamp": "2026-10-04T06:37:29.999Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "curl/7.88.1",
+      "totalInvested": 0,
+      "activePlanName": null
+    },
     {
       "id": "LOG-1791029159812-4FE2DE",
       "userId": "usr-admin-abubakar",

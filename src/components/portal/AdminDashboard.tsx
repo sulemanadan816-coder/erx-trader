@@ -146,15 +146,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [currentOwnerPassword, setCurrentOwnerPassword] = useState('');
   const [newOwnerPassword, setNewOwnerPassword] = useState('');
 
-  const fetchAdminOverview = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
+  const prevDepositsCountRef = React.useRef<number | null>(null);
+  const prevLoginLogsCountRef = React.useRef<number | null>(null);
+  const [liveAlert, setLiveAlert] = useState<{ id: string; message: string; type: 'deposit' | 'login' } | null>(null);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.31);
+    } catch {
+      // AudioContext blocked or not supported, ignore silently
+    }
+  }, []);
+
+  useEffect(() => {
+    if (liveAlert) {
+      const t = setTimeout(() => setLiveAlert(null), 7000);
+      return () => clearTimeout(t);
+    }
+  }, [liveAlert]);
+
+  const fetchAdminOverview = useCallback(async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+      setError(null);
+    } else {
+      setIsSyncing(true);
+    }
     try {
       const res = await apiRequest('/api/admin/overview', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        setError(res.error || 'Failed to load administrator data.');
+        if (!isSilent) {
+          setError(res.error || 'Failed to load administrator data.');
+        }
       } else {
         const data = res.data;
         const userList: UserAccount[] = data.users || [];
@@ -164,13 +204,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
         setWallets(data.wallets || []);
         setPlans(data.plans || []);
-        setDeposits(data.transactions || []);
+
+        const newDeposits: PaymentTransaction[] = data.transactions || [];
+        const newLogins: LoginLogEntry[] = data.loginLogs || [];
+
+        // Trigger real-time alert on new incoming deposits
+        if (prevDepositsCountRef.current !== null && newDeposits.length > prevDepositsCountRef.current) {
+          const newest = newDeposits[0];
+          setLiveAlert({
+            id: `dep-${Date.now()}`,
+            message: `💳 New Deposit Received! ${newest?.amount || ''} from ${newest?.userName || 'User'} (TID: ${newest?.transactionId || ''})`,
+            type: 'deposit',
+          });
+          playNotificationSound();
+        }
+
+        // Trigger real-time alert on new user sign-in
+        if (prevLoginLogsCountRef.current !== null && newLogins.length > prevLoginLogsCountRef.current) {
+          const newestLog = newLogins[0];
+          setLiveAlert({
+            id: `log-${Date.now()}`,
+            message: `👤 New User Login: ${newestLog?.userName || 'User'} (${newestLog?.userIdentifier || ''}) from IP ${newestLog?.ipAddress || ''}`,
+            type: 'login',
+          });
+          playNotificationSound();
+        }
+
+        prevDepositsCountRef.current = newDeposits.length;
+        prevLoginLogsCountRef.current = newLogins.length;
+        setLastSyncTime(new Date());
+
+        setDeposits(newDeposits);
         setWithdrawals(data.withdrawals || []);
         setWithdrawalMethods(data.withdrawalMethods || []);
         setLedgerEntries(data.ledgerEntries || []);
         setAuditLog(data.auditLogs || []);
         setInquiries(data.inquiries || []);
-        setLoginLogs(data.loginLogs || []);
+        setLoginLogs(newLogins);
         setReferralLogs(data.referralLogs || []);
         if (data.settings) {
           setLogoUrlInput(data.settings.logoUrl || '');
@@ -179,12 +249,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
+      setIsSyncing(false);
     }
-  }, [token, adjUserId]);
+  }, [token, adjUserId, playNotificationSound]);
 
   useEffect(() => {
-    fetchAdminOverview();
+    fetchAdminOverview(false);
+    const interval = setInterval(() => {
+      fetchAdminOverview(true);
+    }, 3500);
+    return () => clearInterval(interval);
   }, [fetchAdminOverview]);
 
   const showFlash = (msg: string) => {
@@ -548,14 +623,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Header Bar */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="text-xs text-slate-500 mb-1">
-              <span>{settings.brandName}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-1">
+              <span className="font-semibold text-slate-700">{settings.brandName}</span>
               <span aria-hidden="true"> · </span>
               <span>Authorized Administrator Console</span>
+              <span aria-hidden="true"> · </span>
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>Live Sync Active (3.5s)</span>
+              </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
               Client Payment Approvals, Withdrawals, Ledger &amp; Audit Management
             </h1>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Auto-updating real-time records. Last synced: {lastSyncTime.toLocaleTimeString()}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -568,14 +654,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
             <button
               type="button"
-              onClick={fetchAdminOverview}
+              onClick={() => fetchAdminOverview(false)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg cursor-pointer whitespace-nowrap"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Records</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${loading || isSyncing ? 'animate-spin' : ''}`} />
+              <span>Refresh Now</span>
             </button>
           </div>
         </div>
+
+        {/* Live Audio/Visual Toast Alert */}
+        {liveAlert && (
+          <div
+            role="status"
+            className={`p-4 rounded-xl border flex items-center justify-between gap-3 shadow-lg transition-all animate-bounce ${
+              liveAlert.type === 'deposit'
+                ? 'bg-amber-900/90 border-amber-400 text-amber-100'
+                : 'bg-indigo-900/90 border-indigo-400 text-indigo-100'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{liveAlert.type === 'deposit' ? '💳' : '👤'}</span>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                  {liveAlert.type === 'deposit' ? 'Incoming Payment Detected' : 'Live User Login Event'}
+                </div>
+                <div className="text-sm font-semibold">{liveAlert.message}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLiveAlert(null)}
+              className="px-2.5 py-1 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-lg cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Summary Metrics Row (Tabular Numerals) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -646,48 +761,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-200/80 rounded-lg">
+        {/* Navigation Tabs (Mobile-Friendly Horizontal Swipe) */}
+        <div className="flex items-center gap-1.5 p-1.5 bg-slate-200/90 rounded-xl overflow-x-auto shadow-inner">
           {(
             [
               {
                 id: 'deposits',
-                label: `1. Payment Approvals (${deposits.filter((t) => t.status === 'Pending').length} Pending)`,
+                label: 'Payment Approvals',
+                badge: `${deposits.filter((t) => t.status === 'Pending').length} Pending`,
+                badgeColor: deposits.some((t) => t.status === 'Pending') ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-300 text-slate-700',
+              },
+              {
+                id: 'users',
+                label: 'Live Logins & Users',
+                badge: `${loginLogs.length} Logins`,
+                badgeColor: 'bg-indigo-600 text-white font-bold',
               },
               {
                 id: 'withdrawals',
-                label: `2. Withdrawals Queue (${
-                  withdrawals.filter((w) => w.status === 'PENDING' || w.status === 'PROCESSING')
-                    .length
-                } Active)`,
+                label: 'Withdrawals Queue',
+                badge: `${withdrawals.filter((w) => w.status === 'PENDING' || w.status === 'PROCESSING').length} Active`,
+                badgeColor: withdrawals.some((w) => w.status === 'PENDING' || w.status === 'PROCESSING') ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-300 text-slate-700',
               },
-              { id: 'wallets', label: '3. Wallets & Ledger' },
-              { id: 'methods', label: '4. Withdrawal Methods' },
-              { id: 'audit', label: '5. Audit Log' },
-              { id: 'plans', label: '6. Plans' },
-              {
-                id: 'users',
-                label: `7. Logins & Invested (${users.length} Users · ${loginLogs.length} Logins)`,
-              },
+              { id: 'wallets', label: 'Wallets & Ledger' },
+              { id: 'methods', label: 'Withdrawal Methods' },
+              { id: 'audit', label: 'Audit Log' },
+              { id: 'plans', label: 'Plans' },
               {
                 id: 'referrals',
-                label: `8. Referrals & Affiliates (${referralLogs.length} Payouts)`,
+                label: 'Referrals & Affiliates',
+                badge: `${referralLogs.length} Logs`,
               },
-              { id: 'inquiries', label: '9. Support' },
-              { id: 'settings', label: '10. Settings' },
-            ] as { id: AdminTab; label: string }[]
+              { id: 'inquiries', label: 'Support Inquiries' },
+              { id: 'settings', label: 'Site Settings' },
+            ] as { id: AdminTab; label: string; badge?: string; badgeColor?: string }[]
           ).map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-2 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-slate-900 font-bold shadow-sm'
+                  : 'text-slate-700 hover:text-slate-950 hover:bg-slate-300/60'
               }`}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${tab.badgeColor || 'bg-slate-300 text-slate-800'}`}>
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -998,102 +1122,197 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 No client payment submissions match filter ({depFilter}).
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-xs text-slate-500">
-                      <th className="py-2.5 pr-4 font-semibold">Client &amp; Wallet Balance</th>
-                      <th className="py-2.5 px-4 font-semibold">Purpose / Plan</th>
-                      <th className="py-2.5 px-4 font-semibold">Easypaisa TID &amp; Sender</th>
-                      <th className="py-2.5 px-4 font-semibold text-right">Payment Amount</th>
-                      <th className="py-2.5 px-4 font-semibold">Status</th>
-                      <th className="py-2.5 pl-4 font-semibold">Approve / Disapprove Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-xs">
-                    {filteredDeposits.map((tx) => {
-                      const clientWallet = wallets.find((w) => w.userId === tx.userId);
-                      return (
-                        <tr key={tx.id} className="hover:bg-slate-50/70">
-                          <td className="py-3.5 pr-4">
-                            <div className="font-semibold text-slate-900">{tx.userName}</div>
-                            <div className="font-mono text-[11px] text-slate-500">
-                              {tx.userIdentifier}
-                            </div>
-                            <div className="mt-1 font-mono tabular-nums text-[11px] font-semibold text-emerald-700">
-                              Dashboard Balance: Rs.{' '}
-                              {(clientWallet?.availableBalance || 0).toLocaleString()}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4 font-medium text-slate-800">{tx.planName}</td>
-                          <td className="py-3.5 px-4 font-mono tabular-nums">
-                            <div className="font-bold text-slate-900">TID: {tx.transactionId}</div>
-                            <div className="text-[11px] text-slate-500">
-                              From: {tx.senderNumber}
+              <div className="space-y-4">
+                {/* Mobile Cards View (Visible on Android & Mobile Screens) */}
+                <div className="grid grid-cols-1 gap-3.5 lg:hidden">
+                  {filteredDeposits.map((tx) => {
+                    const clientWallet = wallets.find((w) => w.userId === tx.userId);
+                    return (
+                      <div
+                        key={`m-${tx.id}`}
+                        className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-bold text-slate-900 text-sm">{tx.userName}</div>
+                            <div className="font-mono text-xs text-slate-500">{tx.userIdentifier}</div>
+                          </div>
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                              tx.status === 'Approved'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : tx.status === 'Rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-amber-100 text-amber-800 animate-pulse'
+                            }`}
+                          >
+                            {tx.status === 'Rejected' ? 'Disapproved' : tx.status}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 p-2.5 bg-white border border-slate-200 rounded-lg text-xs">
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Amount</div>
+                            <div className="font-mono font-bold text-emerald-700 text-sm mt-0.5">{tx.amount}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Purpose / Plan</div>
+                            <div className="font-medium text-slate-800 truncate mt-0.5">{tx.planName}</div>
+                          </div>
+                          <div className="col-span-2 pt-1 border-t border-slate-100">
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Easypaisa TID</div>
+                            <div className="font-mono font-bold text-slate-900 flex items-center justify-between">
+                              <span>{tx.transactionId}</span>
+                              <span className="text-[11px] font-normal text-slate-500">From: {tx.senderNumber}</span>
                             </div>
                             {tx.paymentProofNote && (
-                              <div className="text-[11px] text-slate-600">
-                                Note: {tx.paymentProofNote}
-                              </div>
+                              <div className="text-[11px] text-slate-600 mt-1 italic">&ldquo;{tx.paymentProofNote}&rdquo;</div>
                             )}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
-                            {tx.amount}
-                          </td>
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <span
-                              className={`font-semibold ${
-                                tx.status === 'Approved'
-                                  ? 'text-emerald-700'
-                                  : tx.status === 'Rejected'
-                                  ? 'text-red-700'
-                                  : 'text-amber-700'
-                              }`}
-                            >
-                              {tx.status === 'Rejected' ? 'Disapproved (Rejected)' : tx.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 pl-4 min-w-[270px]">
-                            <div className="flex flex-col gap-2">
-                              <input
-                                type="text"
-                                value={depNotesDraft[tx.id] ?? tx.adminNotes}
-                                onChange={(e) =>
-                                  setDepNotesDraft((prev) => ({
-                                    ...prev,
-                                    [tx.id]: e.target.value,
-                                  }))
-                                }
-                                placeholder="Add verification note..."
-                                className="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded text-slate-900"
-                              />
-                              <div className="flex flex-wrap items-center gap-2">
-                                {tx.status !== 'Approved' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReviewDeposit(tx.id, 'Approved')}
-                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded cursor-pointer"
-                                  >
-                                    Approve Payment (+Credit Dashboard)
-                                  </button>
-                                )}
-                                {tx.status !== 'Rejected' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReviewDeposit(tx.id, 'Rejected')}
-                                    className="px-3 py-1.5 text-xs font-semibold text-white bg-red-700 hover:bg-red-800 rounded cursor-pointer"
-                                  >
-                                    Disapprove Payment
-                                  </button>
-                                )}
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-slate-500 flex items-center justify-between">
+                          <span>Wallet Balance: <strong className="font-mono text-emerald-700">Rs. {(clientWallet?.availableBalance || 0).toLocaleString()}</strong></span>
+                          <span>{new Date(tx.submittedAt).toLocaleTimeString()}</span>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-slate-200">
+                          <input
+                            type="text"
+                            value={depNotesDraft[tx.id] ?? tx.adminNotes}
+                            onChange={(e) =>
+                              setDepNotesDraft((prev) => ({
+                                ...prev,
+                                [tx.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Add verification note..."
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded text-slate-900"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            {tx.status !== 'Approved' && (
+                              <button
+                                type="button"
+                                onClick={() => handleReviewDeposit(tx.id, 'Approved')}
+                                className="w-full py-2 px-3 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg cursor-pointer text-center"
+                              >
+                                Approve (+Credit)
+                              </button>
+                            )}
+                            {tx.status !== 'Rejected' && (
+                              <button
+                                type="button"
+                                onClick={() => handleReviewDeposit(tx.id, 'Rejected')}
+                                className="w-full py-2 px-3 text-xs font-bold text-white bg-red-700 hover:bg-red-800 rounded-lg cursor-pointer text-center"
+                              >
+                                Disapprove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table View (Hidden on Mobile) */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-xs text-slate-500">
+                        <th className="py-2.5 pr-4 font-semibold">Client &amp; Wallet Balance</th>
+                        <th className="py-2.5 px-4 font-semibold">Purpose / Plan</th>
+                        <th className="py-2.5 px-4 font-semibold">Easypaisa TID &amp; Sender</th>
+                        <th className="py-2.5 px-4 font-semibold text-right">Payment Amount</th>
+                        <th className="py-2.5 px-4 font-semibold">Status</th>
+                        <th className="py-2.5 pl-4 font-semibold">Approve / Disapprove Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 text-xs">
+                      {filteredDeposits.map((tx) => {
+                        const clientWallet = wallets.find((w) => w.userId === tx.userId);
+                        return (
+                          <tr key={tx.id} className="hover:bg-slate-50/70">
+                            <td className="py-3.5 pr-4">
+                              <div className="font-semibold text-slate-900">{tx.userName}</div>
+                              <div className="font-mono text-[11px] text-slate-500">
+                                {tx.userIdentifier}
                               </div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              <div className="mt-1 font-mono tabular-nums text-[11px] font-semibold text-emerald-700">
+                                Dashboard Balance: Rs.{' '}
+                                {(clientWallet?.availableBalance || 0).toLocaleString()}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 font-medium text-slate-800">{tx.planName}</td>
+                            <td className="py-3.5 px-4 font-mono tabular-nums">
+                              <div className="font-bold text-slate-900">TID: {tx.transactionId}</div>
+                              <div className="text-[11px] text-slate-500">
+                                From: {tx.senderNumber}
+                              </div>
+                              {tx.paymentProofNote && (
+                                <div className="text-[11px] text-slate-600">
+                                  Note: {tx.paymentProofNote}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
+                              {tx.amount}
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span
+                                className={`font-semibold ${
+                                  tx.status === 'Approved'
+                                    ? 'text-emerald-700'
+                                    : tx.status === 'Rejected'
+                                    ? 'text-red-700'
+                                    : 'text-amber-700'
+                                }`}
+                              >
+                                {tx.status === 'Rejected' ? 'Disapproved (Rejected)' : tx.status}
+                              </span>
+                            </td>
+                            <td className="py-3.5 pl-4 min-w-[270px]">
+                              <div className="flex flex-col gap-2">
+                                <input
+                                  type="text"
+                                  value={depNotesDraft[tx.id] ?? tx.adminNotes}
+                                  onChange={(e) =>
+                                    setDepNotesDraft((prev) => ({
+                                      ...prev,
+                                      [tx.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Add verification note..."
+                                  className="px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded text-slate-900"
+                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {tx.status !== 'Approved' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReviewDeposit(tx.id, 'Approved')}
+                                      className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded cursor-pointer"
+                                    >
+                                      Approve Payment (+Credit Dashboard)
+                                    </button>
+                                  )}
+                                  {tx.status !== 'Rejected' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReviewDeposit(tx.id, 'Rejected')}
+                                      className="px-3 py-1.5 text-xs font-semibold text-white bg-red-700 hover:bg-red-800 rounded cursor-pointer"
+                                    >
+                                      Disapprove Payment
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -1752,6 +1971,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Real-Time Login Surveillance Feed Card (Always Visible) */}
+              <div className="mt-6 pt-5 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                      Live Sign-In Surveillance Feed ({loginLogs.length} Events Logged)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Auto-refreshed: {lastSyncTime.toLocaleTimeString()}
+                  </span>
+                </div>
+
+                {loginLogs.length === 0 ? (
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500 text-center">
+                    No sign-ins recorded yet. When a user logs in from any device, it appears here instantly.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {loginLogs.slice(0, 4).map((log, idx) => (
+                      <div
+                        key={log.id}
+                        className={`p-3 rounded-lg border text-xs transition-all ${
+                          idx === 0
+                            ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-200'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="font-bold text-slate-900 truncate">{log.userName}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              log.role === 'admin'
+                                ? 'bg-amber-100 text-amber-900'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {log.role === 'admin' ? 'Admin' : 'Client'}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[11px] text-slate-600 truncate">{log.userIdentifier}</div>
+                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/60">
+                          <span className="font-mono">{log.ipAddress}</span>
+                          <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ================= SUB-VIEW 1: CLIENT ACCOUNTS & INVESTMENTS DIRECTORY ================= */}
@@ -2157,7 +2431,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={fetchAdminOverview}
+                    onClick={() => fetchAdminOverview(false)}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
